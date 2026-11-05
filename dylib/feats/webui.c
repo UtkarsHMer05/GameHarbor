@@ -23,7 +23,7 @@ static inline int32_t sign_extend(uint32_t val, int bits) {
 
 #define VT_RUN_MIN 8
 
-#define MAX_ROUTES 8
+#define MAX_ROUTES 9
 
 #define REGISTRY_MAP_OFF   96
 #define MAP_ELEMENTS_OFF   48
@@ -486,10 +486,13 @@ static uintptr_t build_job(int route, uintptr_t dispatcher, uintptr_t arg) {
     static uintptr_t job_factory_##i(uintptr_t d, uintptr_t a) { return build_job(i, d, a); }
 JOB_FACTORY(0) JOB_FACTORY(1) JOB_FACTORY(2) JOB_FACTORY(3)
 JOB_FACTORY(4) JOB_FACTORY(5) JOB_FACTORY(6) JOB_FACTORY(7)
-static const np_job_factory_fn g_job_factories[MAX_ROUTES] = {
+JOB_FACTORY(8)
+static const np_job_factory_fn g_job_factories[] = {
     job_factory_0, job_factory_1, job_factory_2, job_factory_3,
-    job_factory_4, job_factory_5, job_factory_6, job_factory_7,
+    job_factory_4, job_factory_5, job_factory_6, job_factory_7, job_factory_8,
 };
+_Static_assert(sizeof g_job_factories / sizeof g_job_factories[0] == MAX_ROUTES,
+               "Each WebUI route needs a job factory");
 
 int np_webui_register_route(const char *name, uintptr_t request_vptr,
                            uintptr_t response_vptr, np_webui_handler_fn handler) {
