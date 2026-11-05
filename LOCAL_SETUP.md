@@ -7,7 +7,7 @@ Checked on 5 November 2026. NotProton, its Steam integration, and the activated 
 | Item | State |
 | --- | --- |
 | Mac | MacBook Air, Apple M2, 8 GB RAM; macOS reports 27.0.1 |
-| Repository | Full Git clone in `/Users/utkarshkhajuria/Desktop/notproton`; release `v1.2.3`, commit `1c851b6`, plus the local WebUI route, per-game Wine launcher, and overlay render-pass fixes described below |
+| Repository | Full Git clone in `/Users/utkarshkhajuria/Desktop/notproton`; release `v1.2.3`, commit `1c851b6`, plus the local WebUI route, per-game Wine launcher, overlay render-pass, and Game Mode support fixes described below |
 | NotProton | Version 1.2.3 in `/Applications/NotProton.app`, initially installed through Homebrew, then updated with the local fix |
 | CrossOver | Version 26.3, build 26.3.0.39832, in `/Applications/CrossOver.app`; NotProton verifies the activation signature as valid |
 | Rosetta | Already installed; an x86_64 execution check passed |
@@ -69,11 +69,11 @@ The launcher fixtures cover fresh clones, cache reuse, runner changes, CrossOver
 
 Final local payload hashes before installer re-signing:
 
-- `run`: `d5de2a8a37213815200c4b5e9efb2ed0d903583febd4095c8617fa45b33d6b82`
-- `notproton.dylib`: `bc3f556b5115e4028f63139c2fb4f4eafd74fa88b4898e541ac327d43eaf880f`
+- `run`: `116115de148ffcb74d0fdfdb346b0321c0df1a6ae41a6f329fab8d3a62612f6a`
+- `notproton.dylib`: `c4a72d5cb0849fc825a9ff268a9f62db05da34c8b8bc426e82cf2be4b4303b65`
 - `overlay-shim.dylib`: `213ff45800587ec2a634f07715119b13c76cfad38364d82593054f13ad01ee21`
 
-The modified source and fixtures are now preserved in three local commits on `codex/local-macos-fixes-2026-11-05`, with a further documentation commit. Standard patches and a standalone Git source bundle are saved outside the checkout at `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3`. See [LOCAL_PATCHES.md](LOCAL_PATCHES.md) for recovery and future update migration. Nothing was pushed or published. A future stock NotProton update or reinstall can replace the local changes. The known fallback for a custom user-supplied `WINEDLLPATH` retains the legacy launcher; that custom configuration was not used for Noita. Other Windows games can use the shared launcher fix, but were not individually launch-tested.
+The modified source and fixtures are now preserved in four local functional commits on `codex/local-macos-fixes-2026-11-05`, with local documentation commits. Standard patches and a standalone Git source bundle are saved outside the checkout at `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-with-game-mode`. See [LOCAL_PATCHES.md](LOCAL_PATCHES.md) for recovery and future update migration. Nothing was pushed or published. A future stock NotProton update or reinstall can replace the local changes. The known fallback for a custom user-supplied `WINEDLLPATH` retains the legacy launcher; that custom configuration was not used for Noita. Other Windows games can use the shared launcher fix, but were not individually launch-tested.
 
 ## Shared overlay render-pass correction
 
@@ -96,8 +96,21 @@ Steam can keep its renderer loaded when the overlay UI is disabled, including fo
 
 The tested shim is installed both in NotProton's payload and in its deployed support folder. Their bytes match. NotProton subsequently reported Installed (1.2.3), Components Ready, and current installed content. App Management permission was observed enabled. NotProton, CrossOver, Terminal, and the temporary Settings window were closed; normal macOS Steam was left running and signed in.
 
+## Automatic Game Mode support
+
+The shared Windows game bundle generator now sets Apple's `LSSupportsGameMode` key to the boolean `true`, in addition to the existing games category. The declaration applies to current and future game IDs in the shared template. Existing game bundles update on their next Steam launch. Native macOS games continue through the native Steam path.
+
+`make runcheck launchercheck compatcheck` passed after this change. The added fixture generates metadata for game IDs 123 and 456 and verifies the boolean for each; the remaining launcher checks also passed. The updated run script and embedded dylib were rebuilt, packaged, and deployed through NotProton's installer, which reported successful installation.
+
+The setting declares eligibility. macOS controls actual activation. Apple's public support guide requires Apple silicon, macOS 14 or later, and supported macOS full-screen mode; it also documents that a manually disabled per-game Game Mode setting remains disabled until re-enabled. Game Mode prioritizes CPU/GPU access, reduces background activity, and improves Bluetooth accessory responsiveness. It is not a memory-cleaning service and does not guarantee zero stutters.
+
+References: [Apple Game Mode guide](https://support.apple.com/en-us/105118), [LSSupportsGameMode](https://developer.apple.com/documentation/bundleresources/information-property-list/lssupportsgamemode).
+
 ## Backup and diagnostic locations
 
+- Complete local patch backup: `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-with-game-mode`
+- Game Mode checks: `/tmp/notproton-game-mode-checks.log`
+- Before-Game-Mode payloads: `/Users/utkarshkhajuria/Library/Application Support/NotProtonSetupBackup/2026-11-05/before-game-mode-flag/`
 - Original Steam app archive: `/Users/utkarshkhajuria/Library/Application Support/NotProtonSetupBackup/2026-11-05/Steam.before-notproton.zip`
 - Original NotProton app archive: `/Users/utkarshkhajuria/Library/Application Support/NotProtonSetupBackup/2026-11-05/NotProton.before-route-fix.zip`
 - Backup archive SHA256: `ed29440c8888154b4c432082fe3f47bb39e8650a0aad7451354dda30d3ef1797`
