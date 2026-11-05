@@ -43,6 +43,31 @@ for app_id in 123 456; do
     "$(/usr/libexec/PlistBuddy -c 'Print LSSupportsGameMode' "$loader_contents/Info.plist")"
 done
 
+echo "== fallback install failure =="
+fallback_calls=$(sed -n '/^  install_bundle/,/^elif ! install_game_runner; then$/p' "$SRC" | sed '$d')
+[ -n "$fallback_calls" ] || { echo "FAIL: fallback install calls not found"; exit 1; }
+mkdir -p "$T/fallback/runner"
+printf 'known-good cache' > "$T/fallback/runner/keep"
+rc=0
+(
+  trap - EXIT
+  loader_root="$T/fallback"
+  install_bundle() { return 1; }
+  eval "$fallback_calls"
+) || rc=$?
+is "failed fallback installation stops the launch" 1 "$rc"
+is "failed fallback installation preserves the cached runner" yes \
+  "$([ -f "$T/fallback/runner/keep" ] && echo yes || echo no)"
+[ "$fails" -eq 0 ] || exit 1
+(
+  trap - EXIT
+  loader_root="$T/fallback"
+  install_bundle() { return 0; }
+  eval "$fallback_calls"
+)
+is "successful fallback installation clears the obsolete runner" no \
+  "$([ -e "$T/fallback/runner" ] && echo yes || echo no)"
+
 stage() {
   loader_app="$loader_root/$1.app"
   loader_work=$(mktemp -d "$loader_root/.build.XXXXXX")

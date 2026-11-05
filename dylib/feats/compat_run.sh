@@ -2037,7 +2037,7 @@ CHILD_LOADER
   done
 )
 if [ -z "$game_runner" ]; then
-  install_bundle
+  install_bundle || exit 1
   rm -rf "$loader_root/runner" 2>> "$log" || true
 elif ! install_game_runner; then
   show_alert "Couldn't start the game" "NotProton ran into an error. Please check the notproton-run.log in this game's prefix for details."
