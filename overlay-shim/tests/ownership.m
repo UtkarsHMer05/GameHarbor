@@ -128,8 +128,33 @@ static void begin_pass(TestBuffer *buffer, MTLPixelFormat format)
 	MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
 	pass.colorAttachments[0].texture = (id<MTLTexture>)texture;
 	next_render_encoder = test_render_encoder;
+	const void *saved_begin = overlay_text_begin, *saved_end = overlay_text_end;
+	overlay_text_begin = (const void *)0;
+	overlay_text_end = (const void *)UINTPTR_MAX;
 	hook_render_encoder(buffer, @selector(renderCommandEncoderWithDescriptor:), pass);
+	overlay_text_begin = saved_begin;
+	overlay_text_end = saved_end;
 	[texture release];
+}
+
+static int game_pass_untracked(void)
+{
+	TestBuffer *buffer = [[TestBuffer alloc] init];
+	TestTexture *texture = [[TestTexture alloc] init];
+	texture.pixelFormat = MTLPixelFormatRGB10A2Unorm;
+	MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+	pass.colorAttachments[0].texture = (id<MTLTexture>)texture;
+	next_render_encoder = test_render_encoder;
+	id encoder = hook_render_encoder(buffer, @selector(renderCommandEncoderWithDescriptor:), pass);
+	NSUInteger format = 0;
+	id<MTLCommandBuffer> owner = nil;
+	CHECK(encoder == buffer.encoder, "game encoder is forwarded unchanged");
+	CHECK(!encoder_format(encoder, &format, &owner), "game passes require no overlay tracking");
+	CHECK(encoder_class == Nil, "game passes do not install overlay encoder hooks");
+	[texture release];
+	[buffer release];
+	printf("game pass      forwarded without overlay tracking\n");
+	return 0;
 }
 
 static TestPipeline *new_base(TestDevice *device)
@@ -224,6 +249,7 @@ static int rebuilds(void)
 int main(void)
 {
 	@autoreleasepool {
+		CHECK(game_pass_untracked() == 0, "game pass fast path");
 		CHECK(variant_ownership() == 0, "variant ownership");
 		CHECK(buffer_lifetime(NO, NO) == 0, "unretained buffer completion");
 		CHECK(buffer_lifetime(NO, YES) == 0, "unretained buffer discard");

@@ -483,14 +483,15 @@ static id hook_command_buffer_unretained(id self, SEL selector)
 
 static id hook_render_encoder(id self, SEL selector, MTLRenderPassDescriptor *descriptor)
 {
-	id<MTLTexture> attachment = descriptor != nil ? descriptor.colorAttachments[0].texture : nil;
 	id encoder = next_render_encoder(self, selector, descriptor);
 
-	if (encoder == nil)
+	// Only overlay passes can bind the overlay pipelines this shim corrects.
+	if (encoder == nil || !from_overlay(__builtin_return_address(0)))
 		return encoder;
 
 	ensure_encoder_hooks(encoder);
 
+	id<MTLTexture> attachment = descriptor != nil ? descriptor.colorAttachments[0].texture : nil;
 	if (attachment == nil)
 		return encoder;
 
