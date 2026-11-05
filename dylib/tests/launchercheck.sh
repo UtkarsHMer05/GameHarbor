@@ -7,6 +7,7 @@ SRC="${1:-$(dirname "$0")/../feats/compat_run.sh}"
 funcs=$(sed -n '/^bundle_listing() {$/,/^)$/p' "$SRC")
 runner_funcs=$(sed -n '/^runner_stamp() {$/,/^)$/p' "$SRC")
 runner_pick=$(sed -n '/^game_runner=""$/,/^fi$/p' "$SRC")
+plist_body=$(sed -n '/^cat > "\$loader_contents\/Info.plist" <<PLIST$/,/^PLIST$/p' "$SRC")
 name_lines=$(sed -n '/^bundle_name=\$(printf/,/^\[ -n "\$bundle_name" \] || bundle_name=/p' "$SRC")
 launcher_body=$(sed -n '/^  cat > "\$loader_macos\/launcher" <<LAUNCHER$/,/^LAUNCHER$/p' "$SRC" | sed 1d)
 loader_line=$(grep -A1 '^  if \[ -x "\$loader_macos/wine" \]; then$' "$SRC" | sed -n 2p)
@@ -14,6 +15,7 @@ loader_line=$(grep -A1 '^  if \[ -x "\$loader_macos/wine" \]; then$' "$SRC" | se
 [ -n "$name_lines" ] || { echo "FAIL: bundle name lines not found"; exit 1; }
 [ -n "$launcher_body" ] || { echo "FAIL: launcher script not found"; exit 1; }
 [ -n "$runner_funcs" ] && [ -n "$runner_pick" ] || { echo "FAIL: runner copy code not found"; exit 1; }
+[ -n "$plist_body" ] || { echo "FAIL: game bundle metadata not found"; exit 1; }
 eval "$funcs"
 
 fails=0
@@ -29,6 +31,17 @@ printf 'b' > "$T/runner/b.so"
 log="$T/log"
 loader_root="$T/launchers"
 mkdir -p "$loader_root"
+
+echo "== Game Mode metadata =="
+loader_contents="$T/metadata"
+mkdir -p "$loader_contents"
+game_name_xml=Game display_name_xml=Game bundle_exec=wine
+uielement_arg="" localized_arg="" icon_arg=""
+for app_id in 123 456; do
+  eval "$plist_body"
+  is "Game Mode supported for game $app_id" true \
+    "$(/usr/libexec/PlistBuddy -c 'Print LSSupportsGameMode' "$loader_contents/Info.plist")"
+done
 
 stage() {
   loader_app="$loader_root/$1.app"

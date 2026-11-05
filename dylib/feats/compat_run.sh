@@ -1838,6 +1838,7 @@ cat > "$loader_contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.games</string>
+  <key>LSSupportsGameMode</key><true/>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
   <key>NSMicrophoneUsageDescription</key><string>This game would like to access your microphone.</string>
