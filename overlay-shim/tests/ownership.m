@@ -1,6 +1,63 @@
 // No GPU needed to check who owns the pipelines.
 #import "../overlay_shim.m"
 #import "check.h"
+#import <pthread.h>
+#import <sched.h>
+
+static int claim_ready, claim_go, claim_winners;
+static Class claim_held, claim_target;
+
+static void *claim_thread(void *unused)
+{
+	(void)unused;
+	__atomic_add_fetch(&claim_ready, 1, __ATOMIC_RELEASE);
+	while (!__atomic_load_n(&claim_go, __ATOMIC_ACQUIRE)) sched_yield();
+	if (stage_claimed(claim_target, &claim_held, "concurrent test"))
+		__atomic_add_fetch(&claim_winners, 1, __ATOMIC_RELAXED);
+	return NULL;
+}
+
+static int concurrent_hook_claims(void)
+{
+	claim_target = [NSObject class];
+	for (int round = 0; round < 100; round++) {
+		pthread_t workers[8];
+		claim_held = Nil;
+		claim_ready = claim_go = claim_winners = 0;
+		for (int i = 0; i < 8; i++)
+			CHECK(pthread_create(&workers[i], NULL, claim_thread, NULL) == 0, "create claim worker");
+		while (__atomic_load_n(&claim_ready, __ATOMIC_ACQUIRE) != 8) sched_yield();
+		__atomic_store_n(&claim_go, 1, __ATOMIC_RELEASE);
+		for (int i = 0; i < 8; i++) pthread_join(workers[i], NULL);
+		CHECK(claim_winners == 1, "round %d has %d hook installers", round, claim_winners);
+	}
+	printf("hook claims    one installer in 100 concurrent starts\n");
+	return 0;
+}
+
+static int unsupported_class_logs_once(void)
+{
+	FILE *capture = tmpfile();
+	CHECK(capture != NULL, "create warning capture");
+	int saved = dup(STDERR_FILENO);
+	CHECK(saved >= 0, "save stderr");
+	fflush(stderr);
+	CHECK(dup2(fileno(capture), STDERR_FILENO) >= 0, "capture stderr");
+	Class held = [NSObject class];
+	for (int i = 0; i < 20; i++) stage_claimed([NSString class], &held, "repeated pass");
+	fflush(stderr);
+	int restored = dup2(saved, STDERR_FILENO);
+	close(saved);
+	rewind(capture);
+	int lines = 0;
+	char line[512];
+	while (fgets(line, sizeof(line), capture)) lines++;
+	fclose(capture);
+	CHECK(restored >= 0, "restore stderr");
+	CHECK(lines == 1, "20 unsupported-class calls produce %d warnings", lines);
+	printf("hook warnings  one warning for 20 repeated render-stage calls\n");
+	return 0;
+}
 
 static int live_pipelines;
 static int live_devices;
@@ -249,6 +306,8 @@ static int rebuilds(void)
 int main(void)
 {
 	@autoreleasepool {
+		CHECK(concurrent_hook_claims() == 0, "concurrent hook claims");
+		CHECK(unsupported_class_logs_once() == 0, "render-stage warning limit");
 		CHECK(game_pass_untracked() == 0, "game pass fast path");
 		CHECK(variant_ownership() == 0, "variant ownership");
 		CHECK(buffer_lifetime(NO, NO) == 0, "unretained buffer completion");

@@ -245,17 +245,23 @@ static Class mtl4_queue_class;
 
 static int stage_claimed(Class seen, Class *held, const char *stage)
 {
-	if (*held == seen)
+	Class first;
+	__atomic_load(held, &first, __ATOMIC_ACQUIRE);
+	if (first == seen)
 		return 0;
 
-	if (*held != Nil) {
+	if (first == Nil && __atomic_compare_exchange(held, &first, &seen, 0,
+	                                             __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE))
+		return 1;
+
+	// This can run for every render pass, so report an unsupported class once.
+	static int second_class_logged;
+	if (first != seen && !__atomic_load_n(&second_class_logged, __ATOMIC_RELAXED) &&
+	    !__atomic_exchange_n(&second_class_logged, 1, __ATOMIC_RELAXED)) {
 		shim_log("overlay_shim stage_claimed: second %s class %s, first was %s\n",
-		        stage, class_getName(seen), class_getName(*held));
-		return 0;
+		        stage, class_getName(seen), class_getName(first));
 	}
-
-	*held = seen;
-	return 1;
+	return 0;
 }
 
 static void encoder_mark(id encoder, NSUInteger format, id<MTLCommandBuffer> buffer)
