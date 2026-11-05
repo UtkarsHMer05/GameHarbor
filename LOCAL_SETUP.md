@@ -7,7 +7,7 @@ Checked on 5 November 2026. NotProton, its Steam integration, and the activated 
 | Item | State |
 | --- | --- |
 | Mac | MacBook Air, Apple M2, 8 GB RAM; macOS reports 27.0.1 |
-| Repository | Full Git clone in `/Users/utkarshkhajuria/Desktop/notproton`; release `v1.2.3`, commit `1c851b6`, plus the local WebUI route, per-game Wine launcher, overlay render-pass, and Game Mode support fixes described below |
+| Repository | Full Git clone in `/Users/utkarshkhajuria/Desktop/notproton`; release `v1.2.3`, commit `1c851b6`, plus the local WebUI route, per-game Wine launcher, overlay render-pass, Game Mode support, and shared hook/setup fixes described below |
 | NotProton | Version 1.2.3 in `/Applications/NotProton.app`, initially installed through Homebrew, then updated with the local fix |
 | CrossOver | Version 26.3, build 26.3.0.39832, in `/Applications/CrossOver.app`; NotProton verifies the activation signature as valid |
 | Rosetta | Already installed; an x86_64 execution check passed |
@@ -69,11 +69,11 @@ The launcher fixtures cover fresh clones, cache reuse, runner changes, CrossOver
 
 Final local payload hashes before installer re-signing:
 
-- `run`: `116115de148ffcb74d0fdfdb346b0321c0df1a6ae41a6f329fab8d3a62612f6a`
-- `notproton.dylib`: `c4a72d5cb0849fc825a9ff268a9f62db05da34c8b8bc426e82cf2be4b4303b65`
-- `overlay-shim.dylib`: `213ff45800587ec2a634f07715119b13c76cfad38364d82593054f13ad01ee21`
+- `run`: `df62cdb947b94b34b4849c68769c6c6a9cab541b8f6b6707c122285c62e06a34`
+- `notproton.dylib`: `2a187879e57026cbe42dbd3ab1669c532323ffb6908fb9fc89e88d20623ea43c`
+- `overlay-shim.dylib`: `99f4d3e34a229c3a7d2964af177121fbc561be81f0c7567cda1c9323c80f22ca`
 
-The modified source and fixtures are now preserved in four local functional commits on `codex/local-macos-fixes-2026-11-05`, with local documentation commits. Standard patches and a standalone Git source bundle are saved outside the checkout at `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-with-game-mode`. See [LOCAL_PATCHES.md](LOCAL_PATCHES.md) for recovery and future update migration. Nothing was pushed or published. A future stock NotProton update or reinstall can replace the local changes. The known fallback for a custom user-supplied `WINEDLLPATH` retains the legacy launcher; that custom configuration was not used for Noita. Other Windows games can use the shared launcher fix, but were not individually launch-tested.
+The modified source and fixtures are now preserved in six local functional commits on `codex/local-macos-fixes-2026-11-05`, with local documentation commits. Standard patches and a standalone Git source bundle are saved outside the checkout at `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-performance-audit`. See [LOCAL_PATCHES.md](LOCAL_PATCHES.md) for recovery and future update migration. Nothing was pushed or published. A future stock NotProton update or reinstall can replace the local changes. The known fallback for a custom user-supplied `WINEDLLPATH` retains the legacy launcher; that custom configuration was not used for Noita. Other Windows games can use the shared launcher fix, but were not individually launch-tested.
 
 ## Shared overlay render-pass correction
 
@@ -106,9 +106,27 @@ The setting declares eligibility. macOS controls actual activation. Apple's publ
 
 References: [Apple Game Mode guide](https://support.apple.com/en-us/105118), [LSSupportsGameMode](https://developer.apple.com/documentation/bundleresources/information-property-list/lssupportsgamemode).
 
+## Focused shared performance and launcher audit
+
+Two further local functional commits preserve the earlier fixes:
+
+- `85e524f2045d`: the legacy fallback now stops if `install_bundle` fails. Previously the failure was ignored and its cached game runner was deleted before launch continued. The regression reproduces the old incorrect success and lost cache, then checks failure exit, cache preservation, and successful cleanup. This is setup/error-path correctness, not a claimed FPS gain.
+- `76c7b2395ef9`: shared Metal hook setup now claims its first class atomically. The old check-then-store allowed two threads to install the same hook; the stress reproduction failed at round 16 with two installers. Replacing a hook twice can capture the replacement as its own next implementation. All six hook stages use the shared correction. No per-frame mutex was added.
+- That same hook commit limits the unsupported-second-class warning to once per process. Previously 20 calls produced 20 synchronous `vfprintf`/`fflush` warnings, potentially repeating on render-stage calls. The existing first-class-only hook policy is retained; this does not add support for additional concrete Metal classes.
+
+`make runcheck launchercheck bundlecheck envcheck envpasscheck featstagecheck compatcheck compatsvc-check compatpage-check defaults-check featcheck` passed. `make overlay-shim overlay-shim-tests` passed 8/8 checks, with none skipped, on arm64 and x86_64. The new ownership checks require exactly one installer in 100 simultaneous eight-thread starts per architecture and one warning for 20 repeated calls. `make -j4 dylib` and `git diff --check` also passed.
+
+The rebuilt run script, embedded integration dylib, and universal overlay shim were packaged in the installed NotProton app and deployed through its installer. The app reported successful installation, current content, 19/19 staged support files, and a valid CrossOver license. App Management was already enabled; a retry after opening Settings succeeded. Steam and NotProton passed code-signature integrity checks. Deployed run and overlay files match the app payload byte for byte. Noita was started from normal Steam; macOS metadata shows one regular Noita application and hidden Wine helpers, and its generated bundle retains the Game Mode declaration.
+
+These are reproduced code-level defects in shared paths. The audit does not establish an additional gameplay FPS increase or prove that these defects caused Noita's original stutters. The earlier user-reported Noita improvement is recorded separately above. No graphics backend, MSync, game save, resolution, FPS cap, or overlay preference was changed by this audit. The original CrossOver installation was not edited.
+
+Automatic graphics selection remains CrossOver's existing Auto behavior: a per-game graphics-backend database with a Wine fallback. A universal automatic tuner or no-stutter guarantee is not implemented. See [CodeWeavers' Auto graphics documentation](https://support.codeweavers.com/miscellanous/advanced-settings-in-crossover-mac-26).
+
 ## Backup and diagnostic locations
 
-- Complete local patch backup: `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-with-game-mode`
+- Audit checks: `/tmp/notproton-audit-checks.log` and `/tmp/notproton-hook-audit-checks.log`
+- Before-audit payloads: `/Users/utkarshkhajuria/Library/Application Support/NotProtonSetupBackup/2026-11-05/before-performance-audit/`
+- Complete local patch backup: `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-performance-audit`
 - Game Mode checks: `/tmp/notproton-game-mode-checks.log`
 - Before-Game-Mode payloads: `/Users/utkarshkhajuria/Library/Application Support/NotProtonSetupBackup/2026-11-05/before-game-mode-flag/`
 - Original Steam app archive: `/Users/utkarshkhajuria/Library/Application Support/NotProtonSetupBackup/2026-11-05/Steam.before-notproton.zip`

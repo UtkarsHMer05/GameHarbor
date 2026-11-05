@@ -7,9 +7,9 @@ Saved locally on 5 November 2026 at the user's request. Nothing was pushed or pu
 - Working repository: `/Users/utkarshkhajuria/Desktop/notproton`
 - Local branch: `codex/local-macos-fixes-2026-11-05`
 - Original source: NotProton `v1.2.3`, commit `1c851b661107724f9ec2801913b58c84d84a9ede`
-- Saved code head: `13af10903f97f65943f80f49ecd7f017c568a192`
-- Independent backup folder: `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-with-game-mode`
-- `patches/`: four standard Git patches, including their regression fixtures.
+- Saved code head: `76c7b2395ef9389cb38855755275c50793fe5a37`
+- Independent backup folder: `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-performance-audit`
+- `patches/`: six standard Git patches, including their regression fixtures.
 - `notproton-local-fixes.bundle`: self-contained Git history for this local branch and the original release tag; it can restore the source without the existing checkout.
 - `manifest.json` and `SHA256SUMS`: commit identities, source hashes, artifact hashes, and the recovery-check result.
 - `LOCAL_SETUP.md`: installed components, runtime hashes, user-reported Noita results, test commands, and rollback locations.
@@ -24,8 +24,10 @@ The source bundle contains NotProton source and local documentation. Installed C
 | 2 | `d7b39807204a` | Give Windows games one branded macOS Dock identity | `patches/0002-Give-Windows-games-one-branded-macOS-Dock-identity.patch` |
 | 3 | `222a6828719f` | Skip overlay tracking for game-created render passes | `patches/0003-Skip-overlay-tracking-for-game-created-render-passes.patch` |
 | 4 | `13af10903f97` | Declare Game Mode support for generated Windows game bundles | `patches/0004-Declare-Game-Mode-support-for-generated-Windows-game.patch` |
+| 5 | `85e524f2045d` | Stop failed fallback launches before deleting the cached runner | `patches/0005-Stop-failed-fallback-launches-before-deleting-the-ca.patch` |
+| 6 | `76c7b2395ef9` | Claim overlay hooks atomically and limit repeated render warnings | `patches/0006-Claim-overlay-hooks-atomically-and-limit-repeated-re.patch` |
 
-Documentation is saved in local commits. Only the four functional commits are exported as migration patches.
+Documentation is saved in local commits. Only the six functional commits are exported as migration patches.
 
 Patch 2 contains a backport of upstream per-game Wine-bundle work from `d01287d2095b31a7628d9e13277be68e813988ed` and `e67dd9ba984a74025d7857f998842c8173df294c`, plus the local flat Wine child-loader correction. A future release may already contain part or all of this. Inspect both the per-game bundle and the child-loader path before choosing what to port.
 
@@ -39,11 +41,11 @@ Patch 2 contains a backport of upstream per-game Wine-bundle work from `d01287d2
    git worktree add -b codex/port-local-macos-fixes ../notproton-update NEW_RELEASE_TAG_OR_COMMIT
    ```
 
-3. Inspect the new version for each fix: all WebUI route/factory slots agree; visible Wine game processes use the game's branded bundle while helpers stay hidden; game-created render passes bypass overlay-only tracking; generated Windows game bundles explicitly set `LSSupportsGameMode` to true. Keep upstream implementations where the behavior is already correct.
+3. Inspect the new version for each fix: all WebUI route/factory slots agree; visible Wine game processes use the game's branded bundle while helpers stay hidden; game-created render passes bypass overlay-only tracking; generated Windows game bundles explicitly set `LSSupportsGameMode` to true; failed fallback installation stops before cache cleanup; shared Metal hook setup has a single atomic first claimant and bounds repeated unsupported-class warnings. Keep upstream implementations where the behavior is already correct.
 4. In the new checkout, apply only missing patches in the listed order. Git's three-way application can reuse the original blob identities. For example, if the WebUI fix is still missing:
 
    ```sh
-   git am --3way "/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-with-game-mode/patches/0001-Fix-capacity-for-all-registered-Steam-WebUI-routes.patch"
+   git am --3way "/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-performance-audit/patches/0001-Fix-capacity-for-all-registered-Steam-WebUI-routes.patch"
    ```
 
    Apply the other selected patch files the same way. If upstream has only part of a fix, adapt the missing behavior to its current structure. Resolve conflicts in the new checkout and use `git am --continue`; use `git am --abort` to cancel that attempt. An unknown future version is not guaranteed to accept these patches unchanged.
@@ -56,7 +58,7 @@ Patch 2 contains a backport of upstream per-game Wine-bundle work from `d01287d2
 6. Run the relevant regression checks, adapting target names if upstream changes them:
 
    ```sh
-   make runcheck launchercheck bundlecheck envcheck envpasscheck featstagecheck compatcheck compatsvc-check compatpage-check
+   make runcheck launchercheck bundlecheck envcheck envpasscheck featstagecheck compatcheck compatsvc-check compatpage-check defaults-check featcheck
    make overlay-shim-tests
    git diff --check
    ```
@@ -75,14 +77,22 @@ macOS decides when Game Mode is active. Apple documents automatic activation for
 
 Primary references: [Apple Game Mode guide](https://support.apple.com/en-us/105118) and [Apple's LSSupportsGameMode documentation](https://developer.apple.com/documentation/bundleresources/information-property-list/lssupportsgamemode).
 
-The earlier three-fix snapshot is retained separately at `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3`. This folder is the complete four-fix snapshot.
+The earlier three-fix snapshot is retained separately at `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3`, and the four-fix Game Mode snapshot at `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-with-game-mode`. This folder is the complete six-fix snapshot.
+
+## Performance audit checks
+
+Patch 6 fixes a reproduced race in the common Metal-hook first-claim function and bounds its repeated unsupported-class log writes. The old race admitted two installers in a simultaneous eight-thread reproduction. Both arm64 and x86_64 ownership fixtures now verify 100 concurrent starts with exactly one installer each, plus one warning for 20 unsupported-class calls. All eight overlay checks passed without skips. The first-concrete-class-only hook limitation is preserved; warning suppression does not add new class support.
+
+Patch 5 fixes a separately reproduced fallback setup failure that previously continued launching and removed the cached runner. Its fixture checks failure exit, preservation of the old cache, and successful cleanup.
+
+These fixes have no Noita ID special case. They improve the affected shared paths, with no new automatic graphics tuning, blanket backend/MSync policy, or universal FPS claim. The full commands and installed payload hashes are in `LOCAL_SETUP.md`.
 
 ## Recover if the working repository is lost
 
 From any suitable parent folder:
 
 ```sh
-git clone "/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-with-game-mode/notproton-local-fixes.bundle" NotProton-local-restored
+git clone "/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-performance-audit/notproton-local-fixes.bundle" NotProton-local-restored
 cd NotProton-local-restored
 git switch codex/local-macos-fixes-2026-11-05
 ```
@@ -92,12 +102,12 @@ The bundle also includes the `v1.2.3` tag. Its source can be recovered offline; 
 To check backup integrity:
 
 ```sh
-cd "/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-with-game-mode"
+cd "/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-performance-audit"
 shasum -a 256 -c SHA256SUMS
 ```
 
 ## Verification boundary
 
-The preservation check clones the standalone bundle into a temporary directory, verifies the saved source and documentation hashes, checks out the exact original release, reapplies all four migration patches, and verifies that every modified source/test file matches the saved version byte for byte. This proves recovery on the recorded baseline. A future release has not been selected or tested.
+The preservation check clones the standalone bundle into a temporary directory, verifies the saved source and documentation hashes, checks out the exact original release, reapplies all six migration patches, and verifies that every modified source/test file matches the saved version byte for byte. This proves recovery on the recorded baseline. A future release has not been selected or tested.
 
 Existing gameplay evidence is the user's Noita report: almost stable 60 FPS, occasional 55–57 FPS dips, and no noticeable stutters with the overlay enabled after the shared change. Synthetic render-pass timings were variable and are not a universal FPS claim.
