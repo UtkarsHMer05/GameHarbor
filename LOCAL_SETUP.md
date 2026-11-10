@@ -75,7 +75,7 @@ Final local payload hashes before installer re-signing:
 - `notproton.dylib`: `2a187879e57026cbe42dbd3ab1669c532323ffb6908fb9fc89e88d20623ea43c`
 - `overlay-shim.dylib`: `99f4d3e34a229c3a7d2964af177121fbc561be81f0c7567cda1c9323c80f22ca`
 
-The modified source and fixtures are now preserved in six local functional commits on `codex/local-macos-fixes-2026-11-05`, with local documentation commits. Standard patches and a standalone Git source bundle are saved outside the checkout at `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-performance-audit`. See [LOCAL_PATCHES.md](LOCAL_PATCHES.md) for recovery and future update migration. Nothing was pushed or published. A future stock NotProton update or reinstall can replace the local changes. The known fallback for a custom user-supplied `WINEDLLPATH` retains the legacy launcher; that custom configuration was not used for Noita. Other Windows games can use the shared launcher fix, but were not individually launch-tested.
+The modified source and fixtures are now preserved in eight local functional commits on `codex/local-macos-fixes-2026-11-05`, with local documentation commits. Standard patches and a standalone Git source bundle are saved outside the checkout at `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-10-game-file-safety`. See [LOCAL_PATCHES.md](LOCAL_PATCHES.md) for recovery and future update migration. Nothing was pushed or published. A future stock NotProton update or reinstall can replace the local changes. The known fallback for a custom user-supplied `WINEDLLPATH` retains the legacy launcher; that custom configuration was not used for Noita. Other Windows games can use the shared launcher fix, but were not individually launch-tested.
 
 ## Shared overlay render-pass correction
 
@@ -128,7 +128,7 @@ Automatic graphics selection remains CrossOver's existing Auto behavior: a per-g
 
 - Audit checks: `/tmp/notproton-audit-checks.log` and `/tmp/notproton-hook-audit-checks.log`
 - Before-audit payloads: `/Users/utkarshkhajuria/Library/Application Support/NotProtonSetupBackup/2026-11-05/before-performance-audit/`
-- Complete local patch backup: `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-05-v1.2.3-performance-audit`
+- Complete local patch backup: `/Users/utkarshkhajuria/Documents/NotProton Local Patches/2026-11-10-game-file-safety`
 - Game Mode checks: `/tmp/notproton-game-mode-checks.log`
 - Before-Game-Mode payloads: `/Users/utkarshkhajuria/Library/Application Support/NotProtonSetupBackup/2026-11-05/before-game-mode-flag/`
 - Original Steam app archive: `/Users/utkarshkhajuria/Library/Application Support/NotProtonSetupBackup/2026-11-05/Steam.before-notproton.zip`
