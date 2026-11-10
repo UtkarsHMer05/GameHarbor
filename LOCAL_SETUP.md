@@ -1,5 +1,7 @@
 # NotProton setup on this Mac
 
+Update, 10 November 2026: after Steam's app bundle lost its NotProton injection, Steam automatically removed the Windows depots for Noita and Risk of Rain 2. NotProton 1.2.3 with the local fixes was reinstalled, the updated Steam client loaded its compatibility hooks, and both games were downloaded again. Local copy-on-write game-file protection and recovery instructions are documented in [LOCAL_GAME_FILE_SAFETY.md](LOCAL_GAME_FILE_SAFETY.md). macSteam was not installed alongside the restored integration.
+
 Checked on 5 November 2026. NotProton, its Steam integration, and the activated CrossOver runner are installed. Noita is fully installed. ULTRAKILL was left uninstalled at the user's request.
 
 ## Installed and verified
