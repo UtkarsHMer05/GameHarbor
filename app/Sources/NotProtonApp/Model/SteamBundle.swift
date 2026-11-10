@@ -46,7 +46,11 @@ enum SteamBundle {
         let components = insert.split(separator: ":").map(String.init)
         guard components.contains(deployedDylib) else {
             // Our dylib at another path means Steam.app moved after install. Installing again rewrites it.
-            let others = components.filter { URL(filePath: $0).lastPathComponent != SupportPaths.dylibName }
+            let macSteam = app.appending(path: "Contents/MacOS/macsteam.dylib").path(percentEncoded: false)
+            let others = components.filter {
+                URL(filePath: $0).lastPathComponent != SupportPaths.dylibName
+                    && !($0 == macSteam && files.fileExists(atPath: macSteam))
+            }
             return others.isEmpty ? .notInstalled : .foreign(insert: insert)
         }
 
@@ -66,6 +70,10 @@ enum SteamBundle {
               let environment = dict[environmentKey] as? [String: Any]
         else { return nil }
         return environment[insertKey] as? String
+    }
+
+    static func insertedLibraries(at url: URL) -> [String] {
+        currentInsert(at: url)?.split(separator: ":").map(String.init) ?? []
     }
 
     static func currentControllerBlock(at url: URL = SupportPaths.Steam.infoPlist) -> String? {

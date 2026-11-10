@@ -25,8 +25,9 @@ struct UninstallOutcome: Sendable {
     let restoredValveSignature: Bool
     let removed: [String]
     var unreachableSteam: [URL] = []
+    var restorationFailed = false
 
-    var steamNeedsRedownload: Bool { steamInstalled && !restoredValveSignature }
+    var steamNeedsRedownload: Bool { steamInstalled && restorationFailed }
 
     var partialRemoval: String? {
         guard !unreachableSteam.isEmpty else { return nil }
@@ -40,8 +41,15 @@ enum Uninstall {
     static let step = String(localized: "Remove NotProton")
 
     static func confirmation(modifications: SteamModifications = .shared) -> String {
-        let missing = ((try? modifications.paths()) ?? []).filter { SupportPaths.Steam.isUnreachable($0) }
+        let paths = (try? modifications.paths()) ?? []
+        let missing = paths.filter { SupportPaths.Steam.isUnreachable($0) }
         guard !missing.isEmpty else {
+            if (paths + [SupportPaths.Steam.app]).contains(where: { app in
+                SteamBundle.insertedLibraries(at: app.appending(path: "Contents/Info.plist"))
+                    .contains { URL(filePath: $0).lastPathComponent != SupportPaths.dylibName }
+            }) {
+                return String(localized: "NotProton is removed while other Steam integrations are kept. Windows games and Steam Play prefixes are not removed.")
+            }
             return String(localized: "Steam is restored to its unmodified state and NotProton is removed, including the compatibility tool that lives inside the Steam folder. Windows games and Steam Play prefixes are not removed.")
         }
         return missing.map {
@@ -81,6 +89,7 @@ enum Uninstall {
         var detached = false
         var steamInstalled = false
         var restored = true
+        var restorationFailed = false
         var missing: [URL] = []
         var failures: [any Error] = []
 
@@ -105,15 +114,19 @@ enum Uninstall {
                 report(.detaching)
                 detached = try detach(from: target, innerPlist: innerPlist, updateBlocks: updateBlocks) || detached
                 steamInstalled = true
-                do {
-                    if let repair {
-                        try await repair(target) { report(.restoring($0)) }
-                    } else {
-                        _ = try await SteamRepair.run(app: target, innerPlist: innerPlist,
-                                                     updateBlocks: updateBlocks, modifications: modifications,
-                                                     report: { report(.restoring($0)) })
-                    }
-                } catch { restored = false }
+                if !SteamBundle.insertedLibraries(at: target.appending(path: "Contents/Info.plist")).isEmpty {
+                    restored = false
+                } else {
+                    do {
+                        if let repair {
+                            try await repair(target) { report(.restoring($0)) }
+                        } else {
+                            _ = try await SteamRepair.run(app: target, innerPlist: innerPlist,
+                                                         updateBlocks: updateBlocks, modifications: modifications,
+                                                         report: { report(.restoring($0)) })
+                        }
+                    } catch { restored = false; restorationFailed = true }
+                }
                 guard try modifications.retireIfClean(target) else {
                     throw StepFailure(step: step, detail: String(localized: "Steam could not be fully restored. Please run Repair Steam again."))
                 }
@@ -136,7 +149,7 @@ enum Uninstall {
             defer { bundleLock.release() }
             stopped = try stop(app) { report(.stoppingClient) }
         }
-        _ = try SteamRepair.clearInsert(at: innerPlist)
+        _ = try clearNotProtonInsert(at: innerPlist)
         _ = try UpdateBlock.remove(from: updateBlocks)
         report(.removing)
         var removed = try remove(
@@ -155,7 +168,8 @@ enum Uninstall {
             steamInstalled: steamInstalled,
             restoredValveSignature: restored,
             removed: removed,
-            unreachableSteam: missing
+            unreachableSteam: missing,
+            restorationFailed: restorationFailed
         )
     }
 
@@ -165,10 +179,10 @@ enum Uninstall {
         let dylib = app.appending(path: "Contents/MacOS/\(SupportPaths.dylibName)")
         let executable = app.appending(path: "Contents/MacOS/steam_osx")
 
-        _ = try SteamRepair.clearInsert(at: innerPlist)
+        _ = try clearNotProtonInsert(at: innerPlist)
         _ = try UpdateBlock.remove(from: updateBlocks)
 
-        let cleared = try SteamRepair.clearInsert(at: plist)
+        let cleared = try clearNotProtonInsert(at: plist)
         var droppedDylib = false
         do {
             if files.fileExists(atPath: dylib.path(percentEncoded: false)) {
@@ -187,6 +201,27 @@ enum Uninstall {
             }
             throw error
         }
+        return true
+    }
+
+    static func clearNotProtonInsert(at plist: URL) throws -> Bool {
+        guard var dict = SteamBundle.readInfoPlist(at: plist),
+              var environment = dict[SteamBundle.environmentKey] as? [String: Any]
+        else { return false }
+        let current = SteamBundle.insertedLibraries(at: plist)
+        let remaining = current.filter { URL(filePath: $0).lastPathComponent != SupportPaths.dylibName }
+        var changed = current != remaining
+        if changed {
+            if remaining.isEmpty { environment.removeValue(forKey: SteamBundle.insertKey) }
+            else { environment[SteamBundle.insertKey] = remaining.joined(separator: ":") }
+        }
+        if environment[SteamBundle.controllerBlockKey] as? String == SteamBundle.controllerBlockValue {
+            environment.removeValue(forKey: SteamBundle.controllerBlockKey)
+            changed = true
+        }
+        guard changed else { return false }
+        dict[SteamBundle.environmentKey] = environment
+        try SteamBundle.writeInfoPlist(dict, at: plist)
         return true
     }
 

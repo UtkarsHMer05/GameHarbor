@@ -1171,7 +1171,7 @@ if [ "$verb" = waitforexitandrun ] && [ -f "$np_defaults_file" ] && [ -r "$np_de
       FEX_X87REDUCEDPRECISION=[01])
         [ "${wine_unix##*/}" = aarch64-unix ] || continue ;;
       MTL_HUD_ENABLED=[01] | DXMT_ENABLE_NVEXT=[01] | DXMT_METALFX_SPATIAL_SWAPCHAIN=[01] | \
-      WINEMSYNC=[01] | NOTPROTON_RETINA=[01] | NOTPROTON_RAW_CONTROLLERS=[01] | NOTPROTON_DISABLE_HIDRAW=[01]) ;;
+      WINEMSYNC=[01] | NOTPROTON_RETINA=[01] | NOTPROTON_RETINA_DPI=[01] | NOTPROTON_RAW_CONTROLLERS=[01] | NOTPROTON_DISABLE_HIDRAW=[01]) ;;
       DXMT_CONFIG=*\;*)
         dxmt_added=""
         old_ifs=$IFS; IFS=";"
@@ -1899,10 +1899,12 @@ winebus_lines() {
   printf '%s\r\n' '[HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\WineBus]' "$hidraw_value" ''
 }
 
-# High Resolution doubles LogPixels and turning it off halves it
+# High Resolution doubles LogPixels and turning it off halves it.
+# NOTPROTON_RETINA_DPI=0 leaves it alone, since Wine shrinks the screen for games that are not DPI aware.
 plan_logpixels() {
   dpi_value=""
   new_dpi=""
+  [ "${NOTPROTON_RETINA_DPI-}" != 0 ] || return 0
   dpi_registry=/dev/null
   [ ! -f "$WINEPREFIX/user.reg" ] || dpi_registry="$WINEPREFIX/user.reg"
   read -r retina_was dpi <<EOF
@@ -2853,8 +2855,7 @@ fi
 steam_url="steam://rungameid/$app_id"
 if shortcut_game_id "$SteamGameId"; then steam_url="steam://rungameid/$SteamGameId"; fi
 if [ -n "$game_runner" ]; then
-  runner_games_arg="$games_arg
-  <key>LSSupportsGameMode</key><true/>"
+  runner_games_arg=$games_arg
   if np_game_mode_by_key; then runner_games_arg="  <key>LSSupportsGameMode</key><true/>"; fi
   runner_plist="$loader_work/runner.plist"
   bundle_plist "$display_name_xml" "com.notproton.launcher.$app_id" wine \
@@ -2865,7 +2866,6 @@ $localized_arg" > "$runner_plist"
 else
   bundle_plist "$display_name_xml" "com.notproton.launcher.$app_id" launcher \
     "$games_arg
-  <key>LSSupportsGameMode</key><true/>
 $uielement_arg" > "$loader_contents/Info.plist"
 fi
 

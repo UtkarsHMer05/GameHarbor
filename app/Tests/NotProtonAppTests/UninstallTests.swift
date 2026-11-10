@@ -146,6 +146,37 @@ struct UninstallTests {
         #expect(verified.succeeded)
     }
 
+    @Test("Removing NotProton leaves MacSteam installed and does not replace Steam")
+    func preservesMacSteam() async throws {
+        let layout = try layout()
+        defer { try? FileManager.default.removeItem(at: layout.root) }
+        let macSteam = layout.app.appending(path: "Contents/MacOS/macsteam.dylib")
+        try FileManager.default.copyItem(at: layout.dylib, to: macSteam)
+        var plist = try #require(SteamBundle.readInfoPlist(at: layout.outerPlist))
+        var environment = try #require(plist[SteamBundle.environmentKey] as? [String: Any])
+        environment[SteamBundle.insertKey] = "\(layout.dylib.path):\(macSteam.path)"
+        plist[SteamBundle.environmentKey] = environment
+        try SteamBundle.writeInfoPlist(plist, at: layout.outerPlist)
+        try SteamInstaller.adHocSign(layout.app)
+        let repaired = Flag()
+
+        let outcome = try await Uninstall.run(
+            app: layout.app, innerPlist: layout.innerPlist, updateBlocks: [layout.updateBlock],
+            legacyCompat: layout.legacyCompat, compatTools: layout.compatTools,
+            directories: [layout.support, layout.caches], libraries: [],
+            modifications: layout.modifications, lockFolder: layout.root,
+            repair: { _, _ in repaired.set() }, stop: { _, _ in false }
+        )
+
+        #expect(!repaired.value)
+        #expect(!outcome.steamNeedsRedownload)
+        #expect(!outcome.restoredValveSignature)
+        #expect(SteamBundle.insertedLibraries(at: layout.outerPlist) == [macSteam.path])
+        #expect(FileManager.default.fileExists(atPath: macSteam.path))
+        #expect(!FileManager.default.fileExists(atPath: layout.dylib.path))
+        #expect(try verifies(layout.app))
+    }
+
     // The client is no longer pinned and the setting that was not NotProton's is still there.
     private func unpinnedWithoutLosingTheRest(_ cfg: URL) -> Bool {
         guard let text = try? String(contentsOf: cfg, encoding: .utf8) else { return false }

@@ -71,6 +71,11 @@ struct SteamInstallerTests {
         var deployedVersion: URL { support.appending(path: "dylib.version") }
         var backups: URL { support.appending(path: "backups") }
         var bridge: URL { support.appending(path: "bridge") }
+        var bridgePayload: BridgePayload.Located {
+            BridgePayload.Located(sources: BridgePayload.entries.map {
+                (source: payload.dylib, bridgePaths: $0.bridgePaths)
+            })
+        }
         var modifications: SteamModifications {
             SteamModifications(file: work.appending(path: "steam-bundles.json"),
                                legacyRecord: DeploymentContent.record(beside: deployedVersion))
@@ -108,6 +113,7 @@ struct SteamInstallerTests {
     ) throws -> InstallOutcome {
         let outcome = try SteamInstaller.run(
             payload: fixture.payload,
+            bridgePayload: fixture.bridgePayload,
             version: version,
             app: fixture.app,
             bridge: fixture.bridge,
@@ -274,6 +280,28 @@ struct SteamInstallerTests {
             !FileManager.default.fileExists(atPath: fixture.deployedDylib.path(percentEncoded: false)),
             "the dylib was copied in despite the refusal"
         )
+    }
+
+    @Test("An update keeps MacSteam in the Steam library list")
+    func preservesMacSteam() async throws {
+        let work = try scratchDirectory("install-macsteam")
+        defer { try? FileManager.default.removeItem(at: work) }
+        let fixture = try await self.fixture(into: work)
+        let macSteam = fixture.app.appending(path: "Contents/MacOS/macsteam.dylib")
+        try FileManager.default.copyItem(at: fixture.payload.dylib, to: macSteam)
+        var plist = try #require(SteamBundle.readInfoPlist(at: fixture.plist))
+        var env = try #require(plist[SteamBundle.environmentKey] as? [String: Any])
+        env[SteamBundle.insertKey] = macSteam.path(percentEncoded: false)
+        plist[SteamBundle.environmentKey] = env
+        try SteamBundle.writeInfoPlist(plist, at: fixture.plist)
+
+        _ = try install(fixture)
+        #expect(SteamBundle.insertedLibraries(at: fixture.plist) == [
+            fixture.deployedDylib.path(percentEncoded: false), macSteam.path(percentEncoded: false),
+        ])
+        #expect(try !SteamInstaller.needsPatching(plist: fixture.plist, dylib: fixture.deployedDylib,
+                                                shipping: fixture.payload.dylib, app: fixture.app))
+        #expect(try Shell.run("/usr/bin/codesign", ["--verify", "--strict", fixture.app.path]).succeeded)
     }
 
     @Test("Installing over an existing install is allowed and refreshes it")
@@ -617,7 +645,7 @@ struct SteamInstallerTests {
             #expect(try Data(contentsOf: script) == Data(contentsOf: fixture.payload.run))
             #expect(FileManager.default.isExecutableFile(atPath: script.path))
         }
-        let bridge = try BridgePayload.locate()
+        let bridge = fixture.bridgePayload
         let files = DeploymentContent.files(payload: fixture.payload, bridgePayload: bridge, app: fixture.app,
                                             bridge: fixture.bridge, signatures: fixture.signatures,
                                             fonts: fixture.fonts, overlayShim: fixture.overlayShim, iconmaker: fixture.iconmaker,

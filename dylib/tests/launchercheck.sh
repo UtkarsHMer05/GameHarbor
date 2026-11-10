@@ -86,7 +86,7 @@ is "tile ignores arguments" "open steam://rungameid/100" "$("$T/plists/tile/Cont
 (export NOTPROTON_HIDE_LAUNCHER_TILE=1; bundles 27.1 runner "" wine)
 is "hide setting leaves the tile alone" "-|public.app-category.games" "$(key "$t" LSUIElement)|$(key "$t" LSApplicationCategoryType)"
 bundles 15.7 runner "" wine
-is "runner before macOS 26" "public.app-category.games|true" "$(key "$r" LSApplicationCategoryType)|$(key "$r" LSSupportsGameMode)"
+is "runner before macOS 26" "public.app-category.games|-" "$(key "$r" LSApplicationCategoryType)|$(key "$r" LSSupportsGameMode)"
 bundles 27.1 runner 12884901888033554432 wine
 sed -i '' "s|/usr/bin/open|$T/open|" "$T/plists/tile/Contents/MacOS/launcher"
 is "shortcut" "open steam://rungameid/12884901888033554432" "$("$T/plists/tile/Contents/MacOS/launcher")"

@@ -129,7 +129,7 @@ if [ "$do_unix" -eq 1 ]; then
 		if [ ! -f "$o" ] || [ "$src/$cpp" -nt "$o" ]; then
 			echo "    CXX $cpp"
 			# shellcheck disable=SC2086
-			g++ $CXXFLAGS -c -o "$o" "$src/$cpp"
+			clang++ $CXXFLAGS -c -o "$o" "$src/$cpp"
 			built=$((built + 1))
 		fi
 	done
@@ -144,7 +144,7 @@ if [ "$do_unix" -eq 1 ]; then
 
 	echo "==> linking $out"
 	# shellcheck disable=SC2086
-	gcc -std=gnu23 -arch "$UNIX_ARCH" -mmacosx-version-min="$MIN_VER" -o "$out" -dynamiclib \
+	clang -std=gnu23 -arch "$UNIX_ARCH" -mmacosx-version-min="$MIN_VER" -o "$out" -dynamiclib \
 		-install_name @rpath/lsteamclient.so -Wl,-rpath,@loader_path/ \
 		$link_objs dlls/ntdll/ntdll.so -lc++ -Wl,-undefined,dynamic_lookup
 

@@ -183,9 +183,9 @@ enum SteamInstaller {
         register(app)
         GameTiles.refresh(launchers: support.appending(path: "launchers"), run: payload.run)
 
-        let landed = SteamBundle.currentInsert(at: plist)
-        guard landed == dylib.path(percentEncoded: false) else {
-            AppLog.note("install: bundle declares \(landed ?? "no insert")")
+        let landed = SteamBundle.insertedLibraries(at: plist)
+        guard landed.contains(dylib.path(percentEncoded: false)) else {
+            AppLog.note("install: bundle declares \(landed.joined(separator: ":"))")
             throw StepFailure(
                 step: step,
                 detail: String(localized: "Steam is set up to inject a different dylib. Please repair Steam before installing NotProton.")
@@ -264,8 +264,11 @@ enum SteamInstaller {
         guard let insert = SteamBundle.currentInsert(at: plist), !insert.isEmpty else { return }
 
         let deployed = dylib.path(percentEncoded: false)
+        let macSteam = dylib.deletingLastPathComponent().appending(path: "macsteam.dylib")
+            .path(percentEncoded: false)
         let foreign = insert.split(separator: ":").map(String.init).filter {
             $0 != deployed && URL(filePath: $0).lastPathComponent != SupportPaths.dylibName
+                && !($0 == macSteam && FileManager.default.fileExists(atPath: macSteam))
         }
         guard foreign.isEmpty else {
             throw StepFailure(
@@ -276,7 +279,7 @@ enum SteamInstaller {
     }
 
     static func needsPatching(plist: URL, dylib: URL, shipping: URL, app: URL) throws -> Bool {
-        let deployed = SteamBundle.currentInsert(at: plist) == dylib.path(percentEncoded: false)
+        let deployed = SteamBundle.insertedLibraries(at: plist).contains(dylib.path(percentEncoded: false))
             && SteamBundle.currentControllerBlock(at: plist) == SteamBundle.controllerBlockValue
         let file = DeploymentContent.File(source: shipping, destination: dylib, name: "notproton.dylib", allowsResigning: true)
         if deployed, try file.matches() {
@@ -357,7 +360,11 @@ enum SteamInstaller {
         }
 
         var environment = dict[SteamBundle.environmentKey] as? [String: Any] ?? [:]
-        environment[SteamBundle.insertKey] = dylib.path(percentEncoded: false)
+        let otherLibraries = SteamBundle.insertedLibraries(at: plist).filter {
+            URL(filePath: $0).lastPathComponent != SupportPaths.dylibName
+        }
+        environment[SteamBundle.insertKey] = ([dylib.path(percentEncoded: false)] + otherLibraries)
+            .joined(separator: ":")
         environment[SteamBundle.controllerBlockKey] = SteamBundle.controllerBlockValue
         dict[SteamBundle.environmentKey] = environment
         try SteamBundle.writeInfoPlist(dict, at: plist)
