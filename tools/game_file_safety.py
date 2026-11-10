@@ -270,7 +270,7 @@ def restore_locked(appid, steamapps, root, busy, steam_open, ready):
                 rollback.write_bytes(old_manifest)
                 rollback.replace(manifest)
         if installed and target.exists():
-            shutil.rmtree(target)
+            target.rename(history / "failed-recovery-copy")
         if moved_old:
             (history / "game-before-restore").rename(target)
         raise

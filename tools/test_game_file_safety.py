@@ -117,6 +117,8 @@ class GameSafetyTests(unittest.TestCase):
                                steam_open=lambda: False, ready=lambda: True)
         self.assertEqual((self.game / "new-user-file.txt").read_text(), "keep me")
         self.assertEqual(self.manifest.read_bytes(), previous_manifest)
+        history = next((self.backups / "recoveries").iterdir())
+        self.assertEqual((history / "failed-recovery-copy/game.exe").read_bytes(), b"working game")
 
     def test_restore_refuses_changed_backup(self):
         self.scan()
