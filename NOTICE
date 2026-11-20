@@ -10,8 +10,8 @@ Credits
 
 - NotProton by NotProtonNot and contributors provides the Steam compatibility
   engine, app and original artwork. https://github.com/NotProtonNot/NotProton
-- Thanks to Selectively11 and the macSteam contributors for their work on
-  the separately installed companion project. https://github.com/crghofficial/macsteam
+- SteamPlayMac derives from macSteam by Selectively11 and contributors.
+  https://github.com/crghofficial/macsteam
 
 NotProton licensing
 ===================

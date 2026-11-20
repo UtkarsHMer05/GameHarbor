@@ -1,0 +1,42 @@
+name: SteamPlayMac
+
+on:
+  push:
+    branches: [main]
+    paths: ['SteamPlayMac/**', '.github/workflows/steamplaymac.yml']
+  pull_request:
+    paths: ['SteamPlayMac/**', '.github/workflows/steamplaymac.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: SteamPlayMac
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test the dylib
+        run: |
+          make -j"$(sysctl -n hw.ncpu)"
+          bash checks/run.sh
+
+      - name: Package the config app and launcher
+        run: |
+          bash SteamPlayMac-app/make_app.sh
+          make -C launcher app
+          mkdir -p out/artifact
+          ditto -c -k --keepParent 'SteamPlayMac-app/.build/SteamPlayMac Config.app' out/artifact/SteamPlayMac-Config.zip
+          ditto -c -k --keepParent launcher/build/SteamPlayMac.app out/artifact/SteamPlayMac-Launcher.zip
+          cp ../NOTICE ../LICENSE out/artifact/
+          cp vendor/dobby/LICENSE out/artifact/Dobby-LICENSE
+          cp SteamPlayMac-app/.build/checkouts/Sparkle/LICENSE out/artifact/Sparkle-LICENSE
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SteamPlayMac
+          path: SteamPlayMac/out/artifact

@@ -1,0 +1,7 @@
+// Version
+#ifndef STEAMPLAYMAC_VERSION_H
+#define STEAMPLAYMAC_VERSION_H
+
+#define STEAMPLAYMAC_VERSION "0.8.2-local.3"
+
+#endif // STEAMPLAYMAC_VERSION_H

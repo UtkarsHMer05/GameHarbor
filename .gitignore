@@ -20,6 +20,8 @@ cmake-build-*/
 xcuserdata/
 *.xcuserstate
 DerivedData/
+LOCAL_PATCHES.md
+local-mods/
 
-app/Sources/NotProtonApp/Resources/payload/
+app/Sources/GameHarborApp/Resources/payload/
 __pycache__/

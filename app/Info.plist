@@ -17,9 +17,9 @@
 	<key>CFBundleExecutable</key>
 	<string>NotProtonApp</string>
 	<key>CFBundleIconFile</key>
-	<string>NotProton</string>
+	<string>GameHarbor</string>
 	<key>CFBundleIconName</key>
-	<string>NotProton</string>
+	<string>GameHarbor</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.utkarshkhajuria.gameharbor</string>
 	<key>CFBundleInfoDictionaryVersion</key>

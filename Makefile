@@ -80,7 +80,7 @@ DEPS := $(OBJS:.o=.d)
         appinfo helpers-install ntdll-resolve bridge runcheck compatcheck envpasscheck \
         compatsvc-check prefixstate-check defaults-check compatpage-check defaults-drift shortcutcheck scriptcheck envcheck buildcheck settingscheck routecheck bridgecheck gamedrivecheck launchercheck bundlecheck launch-shell activatecheck FORCE
 
-APP_PAYLOAD := app/Sources/NotProtonApp/Resources/payload
+APP_PAYLOAD := app/Sources/GameHarborApp/Resources/payload
 
 all: $(TARGET) $(APP_PAYLOAD)
 
@@ -163,8 +163,8 @@ mincheck:
 .PHONY: l10ncheck
 l10ncheck:
 	@bin=$$(swift build --package-path app -c release --show-bin-path); \
-	python3 dylib/tests/l10ncheck.py app/Sources/NotProtonApp/Resources/Localization/Localizable.xcstrings \
-		"$$bin/../../Intermediates.noindex/NotProtonApp.build/$$(basename "$$bin")" zh-Hans it de fr
+	python3 dylib/tests/l10ncheck.py app/Sources/GameHarborApp/Resources/Localization/Localizable.xcstrings \
+		"$$bin/../../Intermediates.noindex/GameHarborApp.build/$$(basename "$$bin")" zh-Hans it de fr
 
 # runcheck owns compat_run.sh, whose warnings wait for a change that can move
 # the embedded __text baseline
@@ -738,7 +738,7 @@ app-payload: $(TARGET) $(OVERLAY_SHIM) $(ICONMAKER) $(APPINFO)
 	@echo "==> Staged app payload in $(APP_PAYLOAD)"
 
 APP_BUNDLE  := $(OUT_DIR)/GameHarbor.app
-APP_BUNDLE_PAYLOAD := $(APP_BUNDLE)/Contents/Resources/NotProtonApp_NotProtonApp.bundle/Contents/Resources/payload
+APP_BUNDLE_PAYLOAD := $(APP_BUNDLE)/Contents/Resources/GameHarborApp_GameHarborApp.bundle/Contents/Resources/payload
 APP_ZIP     := $(OUT_DIR)/GameHarbor.zip
 APP_DMG     := $(OUT_DIR)/GameHarbor.dmg
 APP_VERSION := $(shell sed -n 's/^\#define NOTPROTON_VERSION "\(.*\)"/\1/p' dylib/version.h)
@@ -756,7 +756,7 @@ prefix-command-install:
 	mv -f "$(SUPPORT_DIR)/app-executable.new" "$(SUPPORT_DIR)/app-executable"
 
 ICONGEN  := $(OUT_DIR)/icongen
-ICON_DOC := $(OUT_DIR)/NotProton.icon
+ICON_DOC := $(OUT_DIR)/GameHarbor.icon
 ICON_DIR := $(OUT_DIR)/icon
 ICON_CAR := $(ICON_DIR)/Assets.car
 
@@ -772,7 +772,7 @@ $(ICON_CAR): $(ICONGEN)
 	$(ICONGEN) "$(ICON_DOC)"
 	@mkdir -p "$(ICON_DIR)"
 	xcrun actool "$(ICON_DOC)" --compile "$(ICON_DIR)" --platform macosx \
-		--minimum-deployment-target 15.0 --app-icon NotProton \
+		--minimum-deployment-target 15.0 --app-icon GameHarbor \
 		--output-partial-info-plist "$(ICON_DIR)/partial.plist" >/dev/null
 	@echo "==> Built $@"
 
@@ -785,7 +785,7 @@ app: app-payload $(ICON_CAR)
 		"Set :CFBundleShortVersionString $(APP_VERSION)" -c \
 		"Set :CFBundleVersion $(APP_VERSION)" \
 		"$(APP_BUNDLE)/Contents/Info.plist"
-	cp "$$(swift build --package-path app -c release --show-bin-path)/NotProtonApp" \
+	cp "$$(swift build --package-path app -c release --show-bin-path)/GameHarborApp" \
 		"$(APP_BUNDLE)/Contents/MacOS/NotProtonApp"
 	@mkdir -p "$(APP_BUNDLE)/Contents/Frameworks"
 	ditto "$$(swift build --package-path app -c release --show-bin-path)/Sparkle.framework" \
@@ -795,11 +795,11 @@ app: app-payload $(ICON_CAR)
 	xcrun vtool -set-build-version macos $(MIN_VER) "$$(xcrun --sdk macosx --show-sdk-version)" \
 		-replace -output "$(APP_BUNDLE)/Contents/MacOS/NotProtonApp" \
 		"$(APP_BUNDLE)/Contents/MacOS/NotProtonApp"
-	cp -R "$$(swift build --package-path app -c release --show-bin-path)/NotProtonApp_NotProtonApp.bundle" \
+	cp -R "$$(swift build --package-path app -c release --show-bin-path)/GameHarborApp_GameHarborApp.bundle" \
 		"$(APP_BUNDLE)/Contents/Resources/"
-	cp -R "$(APP_BUNDLE)/Contents/Resources/NotProtonApp_NotProtonApp.bundle/Contents/Resources/"*.lproj \
+	cp -R "$(APP_BUNDLE)/Contents/Resources/GameHarborApp_GameHarborApp.bundle/Contents/Resources/"*.lproj \
 		"$(APP_BUNDLE)/Contents/Resources/"
-	cp "$(ICON_DIR)/Assets.car" "$(ICON_DIR)/NotProton.icns" \
+	cp "$(ICON_DIR)/Assets.car" "$(ICON_DIR)/GameHarbor.icns" \
 		"$(APP_BUNDLE)/Contents/Resources/"
 	@missing=$$(cd "$(APP_PAYLOAD)" && find . -type f ! -name '.DS_Store' | sed 's|^\./||' \
 		| while read -r rel; do \
