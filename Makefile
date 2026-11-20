@@ -368,7 +368,8 @@ NATIVEPLATFORMCHECK := $(OUT_DIR)/nativeplatformcheck
 
 $(NATIVEPLATFORMCHECK): FORCE dylib/tests/nativeplatformcheck.c dylib/feats/nativeplatform.c dylib/feats/nativeplatform.h dylib/util/file.c
 	@mkdir -p $(dir $@)
-	$(TEST_CC) -O1 -DHELPER_TIMEOUT_MS=1000 -o $@ dylib/tests/nativeplatformcheck.c dylib/feats/nativeplatform.c dylib/util/file.c
+	# Leave time for macOS to assess a newly generated helper script.
+	$(TEST_CC) -O1 -DHELPER_TIMEOUT_MS=3000 -o $@ dylib/tests/nativeplatformcheck.c dylib/feats/nativeplatform.c dylib/util/file.c
 
 $(FEATCHECK): FORCE dylib/tests/featcheck.c dylib/feats/webpatch.c dylib/feats/webpatch.h \
               dylib/feats/conf.c dylib/feats/conf.h \

@@ -61,8 +61,8 @@ int main(void) {
     expect("an extra line", "printf 'mac=1\\nwindows=2\\nlinux=3\\n'", NULL);
     expect("no newline at the end", "printf 'mac=1\\nwindows=2'", NULL);
     expect("a helper that stalls after closing stdout",
-           "printf 'mac=1\\nwindows=2\\n'; exec 1>&-; exec /bin/sleep 3", NULL);
-    expect("a helper that stalls without output", "exec /bin/sleep 3", NULL);
+           "printf 'mac=1\\nwindows=2\\n'; exec 1>&-; exec /bin/sleep 10", NULL);
+    expect("a helper that stalls without output", "exec /bin/sleep 10", NULL);
 
     expect("the appinfo folder without appinfo.vdf",
            "case \"$1\" in */Steam/appcache/appinfo) printf 'mac=\\nwindows=\\n' ;; *) exit 1 ;; esac",
