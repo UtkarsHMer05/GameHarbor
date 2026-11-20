@@ -35,25 +35,33 @@ static void set_sample_data(void) {
 
 int main(int argc, char **argv) {
     const char *form = argc >= 2 ? argv[1] : "";
-    int data = strcmp(form, "component-data") == 0 || strcmp(form, "statement-data") == 0;
-    if (data || strcmp(form, "component") == 0 || strcmp(form, "statement") == 0) {
+    int data = strcmp(form, "component-data") == 0 || strcmp(form, "statement-data") == 0 ||
+               strcmp(form, "statement-ui-data") == 0;
+    if (data || strcmp(form, "component") == 0 || strcmp(form, "statement") == 0 ||
+        strcmp(form, "statement-ui") == 0) {
         np_webpatch_set_fallback_tool(argc >= 3 ? argv[2] : NULL);
         np_webpatch_set_fex_tools((const char *const *)argv + 3,
                                   argc > 3 ? (size_t)(argc - 3) : 0);
         if (data) set_sample_data();
         // NP_TEST_TOOLS is the set NotProton installed: the panel is only for those.
-        const char *ours[NP_WEBPATCH_FEX_TOOLS_MAX];
+        const char *ours[NP_WEBPATCH_FEX_TOOLS_MAX], *ran[NP_WEBPATCH_FEX_TOOLS_MAX];
         char tools[1024];
         size_t nours = 0;
         snprintf(tools, sizeof(tools), "%s", getenv("NP_TEST_TOOLS") ? getenv("NP_TEST_TOOLS") : "");
         for (char *tok = strtok(tools, ","); tok && nours < NP_WEBPATCH_FEX_TOOLS_MAX;
-             tok = strtok(NULL, ","))
-            ours[nours++] = tok;
-        np_webpatch_set_tool_builds(ours, ours, ours, nours);
+             tok = strtok(NULL, ",")) {
+            char *eq = strchr(tok, '=');
+            if (eq) *eq = '\0';
+            ours[nours] = tok;
+            ran[nours++] = eq ? eq + 1 : tok;
+        }
+        np_webpatch_set_tool_builds(ours, ran, ours, nours);
         np_webpatch_set_features(getenv("NP_TEST_READY"), getenv("NP_TEST_FEATS"));
+        np_webpatch_set_show_all(getenv("NP_TEST_SHOW_ALL") != NULL);
         np_webpatch_set_variants(getenv("NP_TEST_VARS"));
         put_panel(strncmp(form, "component", 9) == 0 ? NP_CX_OPTIONS_COMPONENT
-                                                     : NP_CX_OPTIONS_STATEMENT);
+                  : strncmp(form, "statement-ui", 12) == 0 ? NP_CX_OPTIONS_STATEMENT_UI
+                                                           : NP_CX_OPTIONS_STATEMENT);
         return 0;
     }
     if (argc == 2 && strcmp(argv[1], "barrel-names") == 0) {
@@ -85,7 +93,7 @@ int main(int argc, char **argv) {
         fputs(NP_LIBRARY_WINDOWS_SUMMARY, stdout);
         return 0;
     }
-    fputs("usage: emit component|statement[-data] [fallback [fex-tool...]]|migration|compat-hint|"
+    fputs("usage: emit component|statement|statement-ui[-data] [fallback [fex-tool...]]|migration|compat-hint|"
           "image-files-label|library-windows-hint|library-windows-summary|prefix-row|barrel-names\n",
           stderr);
     return 2;
