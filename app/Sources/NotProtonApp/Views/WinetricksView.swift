@@ -301,7 +301,7 @@ struct WinetricksView: View {
         } else if verb.isManualDownload {
             Text("Manual download")
                 .foregroundStyle(.tertiary)
-                .help("This package needs its files downloaded by hand, which NotProton cannot do.")
+                .help("This package needs its files downloaded by hand, which GameHarbor cannot do.")
         }
     }
 

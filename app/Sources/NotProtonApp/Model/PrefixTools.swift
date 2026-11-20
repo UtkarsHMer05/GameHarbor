@@ -319,7 +319,7 @@ enum PrefixTools {
         // another prefix, and options like --self-update change winetricks itself.
         let damaging: Set<String> = ["annihilate", "isolate_home", "sandbox"]
         if let refused = verbs.first(where: { damaging.contains($0) || $0.hasPrefix("prefix=") || $0.hasPrefix("-") }) {
-            throw StepFailure(step: step, detail: String(localized: "NotProton does not run \(refused) with Winetricks."))
+            throw StepFailure(step: step, detail: String(localized: "GameHarbor does not run \(refused) with Winetricks."))
         }
         guard let claim = PrefixStore.claim(prefix) else {
             throw StepFailure(step: step, detail: String(localized: "\(prefix.title) is running. Quit the game first."))

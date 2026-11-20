@@ -16,7 +16,7 @@ enum AppLog {
         queue.async {
             isOn = true
             try? FileManager.default.createDirectory(at: SupportPaths.support, withIntermediateDirectories: true)
-            append("--- NotProton \(AppVersion.bundled) started ---\n")
+            append("--- GameHarbor \(AppVersion.bundled) started ---\n")
         }
     }
 

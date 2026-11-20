@@ -18,7 +18,7 @@ struct NotProtonApp: App {
     }
 
     var body: some Scene {
-        Window("NotProton", id: "main") {
+        Window("GameHarbor", id: "main") {
             RootView(pane: $pane)
                 .environment(status)
                 .environment(prefixes)
@@ -39,7 +39,12 @@ struct NotProtonApp: App {
         CommandGroup(replacing: .newItem) {}
 
         CommandGroup(after: .appInfo) {
-            Button("Check for Updates…") { updater.check() }
+            if updater.isConfigured {
+                Button("Check for Updates…") { updater.check() }
+            }
+            if let notice = Bundle.main.url(forResource: "NOTICE", withExtension: "txt", subdirectory: "Licenses") {
+                Button("Licenses and Credits…") { NSWorkspace.shared.open(notice) }
+            }
         }
 
         CommandGroup(after: .sidebar) {

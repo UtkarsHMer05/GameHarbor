@@ -1,3 +1,18 @@
+GameHarbor
+==========
+
+Fork modifications copyright (c) 2026 Utkarsh Khajuria.
+GameHarbor was derived from NotProton 1.2.7 and rebranded on 21 November 2026.
+The GameHarbor modifications to the GPL-covered app are licensed under
+GNU GPL version 3. The original copyright and component licenses below apply.
+
+Credits
+
+- NotProton by NotProtonNot and contributors provides the Steam compatibility
+  engine, app and original artwork. https://github.com/NotProtonNot/NotProton
+- Thanks to Selectively11 and the macSteam contributors for their work on
+  the separately installed companion project. https://github.com/crghofficial/macsteam
+
 NotProton licensing
 ===================
 

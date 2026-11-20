@@ -72,7 +72,7 @@ TARGET      := $(OUT_DIR)/notproton.dylib
 OBJS := $(patsubst %.c,$(OUT_DIR)/%.o,$(SRCS))
 DEPS := $(OBJS:.o=.d)
 
-.PHONY: all clean rebuild dobby deploy dylib dylib-install sigcheck fonts fonts-install app-payload app app-zip \
+.PHONY: all clean rebuild dobby deploy dylib dylib-install sigcheck fonts fonts-install app-payload app app-zip app-dmg \
         anchorcheck callscheck sigdb-fixtures webpatch-fixtures peicon-fixtures ceg-check panel-behavior app-tests \
         featcheck featstagecheck runnervariantcheck conf-fixtures confcheck \
         tests-list overlay-shim overlay-shim-install overlay-shim-tests \
@@ -668,7 +668,7 @@ sigdb-install:
 	cp -f signatures/macos.arm64/*.json "$(SUPPORT_DIR)/signatures/macos.arm64/"
 	@echo "==> Installed: $(SUPPORT_DIR)/signatures/macos.arm64"
 
-LAUNCHABLE_BUNDLES := $(HOME)/Desktop/NotProton.app /Applications/NotProton.app
+LAUNCHABLE_BUNDLES := $(HOME)/Desktop/GameHarbor.app /Applications/GameHarbor.app
 
 FONT_FILES := --include='*/' --include='*.ttf' --include='*.ttc' --exclude='*'
 
@@ -737,9 +737,10 @@ app-payload: $(TARGET) $(OVERLAY_SHIM) $(ICONMAKER) $(APPINFO)
 	echo "$$stamp" > "$(APP_PAYLOAD)/build-time"
 	@echo "==> Staged app payload in $(APP_PAYLOAD)"
 
-APP_BUNDLE  := $(OUT_DIR)/NotProton.app
+APP_BUNDLE  := $(OUT_DIR)/GameHarbor.app
 APP_BUNDLE_PAYLOAD := $(APP_BUNDLE)/Contents/Resources/NotProtonApp_NotProtonApp.bundle/Contents/Resources/payload
-APP_ZIP     := $(OUT_DIR)/NotProton.zip
+APP_ZIP     := $(OUT_DIR)/GameHarbor.zip
+APP_DMG     := $(OUT_DIR)/GameHarbor.dmg
 APP_VERSION := $(shell sed -n 's/^\#define NOTPROTON_VERSION "\(.*\)"/\1/p' dylib/version.h)
 
 APP_SIGN_ID ?= -
@@ -811,6 +812,14 @@ app: app-payload $(ICON_CAR)
 		exit 1; \
 	fi
 	@echo "==> Payload complete in the bundle"
+	@mkdir -p "$(APP_BUNDLE)/Contents/Resources/Licenses"
+	cp LICENSE LICENSE.fonts LICENSE.lsteamclient LICENSE.steam-shim "$(APP_BUNDLE)/Contents/Resources/Licenses/"
+	cp NOTICE "$(APP_BUNDLE)/Contents/Resources/Licenses/NOTICE.txt"
+	cp vendor/dobby/LICENSE "$(APP_BUNDLE)/Contents/Resources/Licenses/Dobby.txt"
+	cp app/.build/checkouts/Sparkle/LICENSE "$(APP_BUNDLE)/Contents/Resources/Licenses/Sparkle.txt"
+	cp fonts/liberation-fonts/LICENSE "$(APP_BUNDLE)/Contents/Resources/Licenses/Liberation.txt"
+	cp fonts/noto/LICENSE "$(APP_BUNDLE)/Contents/Resources/Licenses/Noto.txt"
+	cp fonts/source-han-sans/LICENSE.txt "$(APP_BUNDLE)/Contents/Resources/Licenses/SourceHanSans.txt"
 	codesign -f -s "$(APP_SIGN_ID)" "$(APP_BUNDLE)"
 	codesign --verify --strict "$(APP_BUNDLE)"
 	@echo "==> Built $(APP_BUNDLE) ($(APP_VERSION))"
@@ -819,6 +828,12 @@ app-zip: app
 	rm -f "$(APP_ZIP)"
 	ditto -c -k --keepParent "$(APP_BUNDLE)" "$(APP_ZIP)"
 	@echo "==> Wrote $(APP_ZIP)"
+
+app-dmg: app
+	@set -e; stage=$$(mktemp -d); trap 'rm -rf "$$stage"' EXIT; \
+	ditto "$(APP_BUNDLE)" "$$stage/GameHarbor.app"; \
+	ln -s /Applications "$$stage/Applications"; \
+	hdiutil create -ov -format UDZO -volname GameHarbor -srcfolder "$$stage" "$(APP_DMG)"
 
 clean:
 	rm -rf $(OUT_DIR)

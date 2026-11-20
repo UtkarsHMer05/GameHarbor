@@ -32,13 +32,13 @@ struct UninstallOutcome: Sendable {
     var partialRemoval: String? {
         guard !unreachableSteam.isEmpty else { return nil }
         return unreachableSteam.map {
-            String(localized: "NotProton has been partially removed, because Steam at \($0.path(percentEncoded: false)) cannot be found. Delete that copy of Steam and reinstall it to fully remove NotProton.")
+            String(localized: "GameHarbor has been partially removed, because Steam at \($0.path(percentEncoded: false)) cannot be found. Delete that copy of Steam and reinstall it to fully remove GameHarbor.")
         }.joined(separator: "\n\n")
     }
 }
 
 enum Uninstall {
-    static let step = String(localized: "Remove NotProton")
+    static let step = String(localized: "Remove GameHarbor")
 
     static func confirmation(modifications: SteamModifications = .shared) -> String {
         let paths = (try? modifications.paths()) ?? []
@@ -48,12 +48,12 @@ enum Uninstall {
                 SteamBundle.insertedLibraries(at: app.appending(path: "Contents/Info.plist"))
                     .contains { URL(filePath: $0).lastPathComponent != SupportPaths.dylibName }
             }) {
-                return String(localized: "NotProton is removed while other Steam integrations are kept. Windows games and Steam Play prefixes are not removed.")
+                return String(localized: "GameHarbor is removed while other Steam integrations are kept. Windows games and Steam Play prefixes are not removed.")
             }
-            return String(localized: "Steam is restored to its unmodified state and NotProton is removed, including the compatibility tool that lives inside the Steam folder. Windows games and Steam Play prefixes are not removed.")
+            return String(localized: "Steam is restored to its unmodified state and GameHarbor is removed, including the compatibility tool that lives inside the Steam folder. Windows games and Steam Play prefixes are not removed.")
         }
         return missing.map {
-            String(localized: "Steam at \($0.path(percentEncoded: false)) isn't connected, so NotProton can't be removed from it. All other NotProton data is removed, except for Windows Games and prefixes.")
+            String(localized: "Steam at \($0.path(percentEncoded: false)) isn't connected, so GameHarbor can't be removed from it. All other GameHarbor data is removed, except for Windows Games and prefixes.")
         }.joined(separator: "\n\n")
     }
 
@@ -83,7 +83,7 @@ enum Uninstall {
         let lock = try DeploymentContent.acquireInstallationLock(in: lockFolder, steamFolder: nil)
         defer { lock.release() }
         guard !runnerIsRunning(runners) else {
-            throw StepFailure(step: step, detail: String(localized: "A game or Wine tool is running. Quit it before removing NotProton."))
+            throw StepFailure(step: step, detail: String(localized: "A game or Wine tool is running. Quit it before removing GameHarbor."))
         }
         try modifications.prepare()
         let tracked = try modifications.paths()

@@ -39,7 +39,7 @@ enum SourceUpdateCommand {
         install: () throws -> Void = {
             let result = try SteamInstaller.run(stopClient: { _, _ in
                 guard !SteamBundle.isRunning else {
-                    throw StepFailure(step: "Update NotProton", detail: "Close Steam before updating.")
+                    throw StepFailure(step: "Update GameHarbor", detail: "Close Steam before updating.")
                 }
                 return false
             })
@@ -47,7 +47,7 @@ enum SourceUpdateCommand {
         }
     ) throws {
         guard !steamRunning() else {
-            throw StepFailure(step: "Update NotProton", detail: "Close Steam before updating.")
+            throw StepFailure(step: "Update GameHarbor", detail: "Close Steam before updating.")
         }
         try install()
     }
@@ -81,7 +81,7 @@ enum RebuildPrefixCommand {
         else { throw refused("The game prefix could not be found under steamapps/compatdata.") }
         guard let tool = tools.first(where: {
             $0.name == arguments[1] && $0.build == arguments[2] && $0.tool.flavor.rawValue == arguments[3]
-        }) else { throw refused("The selected compatibility tool is unavailable. Set it up in NotProton first.") }
+        }) else { throw refused("The selected compatibility tool is unavailable. Set it up in GameHarbor first.") }
         let library = SteamLibrary(root: steamapps.deletingLastPathComponent())
         return Request(
             prefix: WinePrefix(appID: appID, name: PrefixStore.appName(appID: appID, in: library),
@@ -176,11 +176,11 @@ enum RebuildPrefixCommand {
         // recorded from there would still run.
         let readOnly = (try? executable.resourceValues(forKeys: [.volumeIsReadOnlyKey]))?.volumeIsReadOnly == true
         if readOnly || executable.pathComponents.contains("AppTranslocation") {
-            AppLog.note("install: NotProton runs from \(executable.path), so Steam cannot start rebuilds")
+            AppLog.note("install: GameHarbor runs from \(executable.path), so Steam cannot start rebuilds")
             try? FileManager.default.removeItem(at: support.appending(path: executableRecord))
             return
         }
         try atomicReplace(support.appending(path: executableRecord),
-                          with: Data(executable.path(percentEncoded: false).utf8), step: "Record NotProton app")
+                          with: Data(executable.path(percentEncoded: false).utf8), step: "Record GameHarbor app")
     }
 }

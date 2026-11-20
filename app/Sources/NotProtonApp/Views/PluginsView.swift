@@ -92,7 +92,7 @@ struct PluginsView: View {
         Button("Open Plugins Folder", systemImage: "folder.badge.plus") {
             model.openFolder()
         }
-        .help("Open the folder NotProton reads plugins from.")
+        .help("Open the folder GameHarbor reads plugins from.")
 
         Button("Refresh", systemImage: "arrow.clockwise") {
             Task { await model.load() }

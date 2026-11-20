@@ -1,4 +1,4 @@
-// NotProton payload manifest stuff
+// GameHarbor payload manifest stuff
 
 import Foundation
 

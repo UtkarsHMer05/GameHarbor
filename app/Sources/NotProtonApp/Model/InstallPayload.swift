@@ -1,9 +1,9 @@
-// Deploys core NotProton components into the copy of CrossOver that NotProton deploys to the Steam location
+// Deploys core GameHarbor components into the copy of CrossOver that GameHarbor deploys to the Steam location
 
 import Foundation
 
 enum InstallPayload {
-    static let step = String(localized: "Find NotProton's components")
+    static let step = String(localized: "Find GameHarbor's components")
 
     struct Located: Sendable {
         let dylib: URL
@@ -22,7 +22,7 @@ enum InstallPayload {
         guard let url = bundle.url(forResource: "payload", withExtension: nil) else {
             throw StepFailure(
                 step: step,
-                detail: String(localized: "This build of NotProton carries no components at all.")
+                detail: String(localized: "This build of GameHarbor carries no components at all.")
             )
         }
         return url
