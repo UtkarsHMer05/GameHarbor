@@ -34,9 +34,9 @@ sandbox-exec -p "(version 1)(allow default)(deny network*)(deny file-write*)(all
     /usr/bin/env HOME="$scratch" NOTPROTON_SIG="$np_profile" \
     DYLD_INSERT_LIBRARIES="$scratch/input-allow.dylib:$notproton:$PWD/out/SteamPlayMac.dylib" \
     "$scratch/steam_osx" "$client" 2> "$scratch/stderr"
-rg -q 'signatures: 32/32 resolved' "$ms/SteamPlayMac.log"
-rg -q '\[relaunch\] NotProton handles child process injection' "$ms/SteamPlayMac.log"
-rg -q 'SteamPlayMac ready: 18/18 hooks installed' "$ms/SteamPlayMac.log"
-rg -q 'install_thread: ready, 13/13 hooks installed' "$scratch/Library/Application Support/notproton/notproton.log"
-if [[ -n "${MACSTEAM_CHECK_CONFIG:-}" ]]; then rg -q 'config loaded: [1-9][0-9]* apps' "$ms/SteamPlayMac.log"; fi
+grep -q 'signatures: 32/32 resolved' "$ms/SteamPlayMac.log"
+grep -q '\[relaunch\] NotProton handles child process injection' "$ms/SteamPlayMac.log"
+grep -q 'SteamPlayMac ready: 18/18 hooks installed' "$ms/SteamPlayMac.log"
+grep -q 'install_thread: ready, 13/13 hooks installed' "$scratch/Library/Application Support/notproton/notproton.log"
+if [[ -n "${MACSTEAM_CHECK_CONFIG:-}" ]]; then grep -q 'config loaded: [1-9][0-9]* apps' "$ms/SteamPlayMac.log"; fi
 echo 'Both integrations resolved and installed their hooks together in the isolated Steam client'

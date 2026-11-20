@@ -39,21 +39,21 @@ printf '{"steam_build":"888"}' > "$profiles/999.json"
 touch "$scratch/.crash"
 clang checks/steam_process.c -o "$scratch/steam_osx"
 HOME="$scratch" DYLD_INSERT_LIBRARIES="$PWD/out/SteamPlayMac.dylib" "$scratch/steam_osx" 2> "$scratch/log"
-rg -q 'Steam build 999 has no matching profile; SteamPlayMac is inactive' "$scratch/log"
+grep -q 'Steam build 999 has no matching profile; SteamPlayMac is inactive' "$scratch/log"
 test -f "$scratch/.crash"
 echo 'Unsupported runtime profile remains inactive and leaves Steam files untouched'
 clang -dynamiclib checks/steam_process.c -o "${package%/package}/steamclient.dylib"
 client_hash=$(shasum -a 256 "${package%/package}/steamclient.dylib" | cut -d ' ' -f 1)
 printf '{"steam_build":"999","steamclient_sha256_arm64":"%064d"}' 0 > "$profiles/999.json"
 HOME="$scratch" DYLD_INSERT_LIBRARIES="$PWD/out/SteamPlayMac.dylib" "$scratch/steam_osx" 2> "$scratch/log"
-rg -q 'Steam build 999 has no matching profile; SteamPlayMac is inactive' "$scratch/log"
+grep -q 'Steam build 999 has no matching profile; SteamPlayMac is inactive' "$scratch/log"
 test -f "$scratch/.crash"
 printf '{"steam_build":"999","steamclient_sha256_arm64":"%s"}' "$client_hash" > "$profiles/999.json"
 mkdir -p "$scratch/Library/Application Support/Steam/appcache"
 printf '\350\116\000\000\002billingtype' > "$scratch/Library/Application Support/Steam/appcache/packageinfo.vdf"
 before=$(shasum -a 256 "$scratch/Library/Application Support/Steam/appcache/packageinfo.vdf")
 HOME="$scratch" DYLD_INSERT_LIBRARIES="$PWD/out/SteamPlayMac.dylib" "$scratch/steam_osx" 2> "$scratch/log"
-rg -q 'SteamPlayMac loaded into steam_osx' "$scratch/log"
+grep -q 'SteamPlayMac loaded into steam_osx' "$scratch/log"
 test "$before" = "$(shasum -a 256 "$scratch/Library/Application Support/Steam/appcache/packageinfo.vdf")"
 echo 'Matching client hash starts safely without changing the package cache when no apps are configured'
 if [[ -n "${MACSTEAM_CHECK_CLIENT:-}" ]]; then
