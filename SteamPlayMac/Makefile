@@ -174,10 +174,8 @@ dobby:
 .PHONY: dmg
 dmg: all
 	bash SteamPlayMac-app/make_app.sh
-	$(MAKE) -C launcher app
 	@set -eu; stage=$$(mktemp -d); trap 'rm -rf "$$stage"' EXIT; \
 	ditto "SteamPlayMac-app/.build/SteamPlayMac Config.app" "$$stage/SteamPlayMac Config.app"; \
-	ditto "launcher/build/SteamPlayMac.app" "$$stage/SteamPlayMac.app"; \
 	ln -s /Applications "$$stage/Applications"; \
 	mkdir "$$stage/Licenses"; \
 	cp ../licenses/THIRD-PARTY.txt ../licenses/LICENSE "$$stage/Licenses/"; \
