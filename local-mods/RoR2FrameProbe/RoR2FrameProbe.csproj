@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Optimize>true</Optimize>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Probe.cs;FrameWindow.cs" />
+    <Reference Include="BepInEx">
+      <HintPath>$(GameDirectory)/BepInEx/core/BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MMHOOK_RoR2">
+      <HintPath>$(GameDirectory)/BepInEx/plugins/MMHOOK/MMHOOK_RoR2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine;UnityEngine.CoreModule;UnityEngine.ProfilerModule;RoR2;com.unity.multiplayer-hlapi.Runtime">
+      <HintPath>$(GameDirectory)/Risk of Rain 2_Data/Managed/%(Identity).dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

@@ -18,6 +18,7 @@
 #include <sys/syscall.h>
 #include <stdio.h>
 #include <errno.h>
+#include <dlfcn.h>
 
 #define DYLD_INTERPOSE(_replacement, _replacee) \
     __attribute__((used)) static struct { \
@@ -162,6 +163,22 @@ static int try_serve(const char *path, int oflag) {
     return fd;
 }
 
+// MacSteam interposes the same functions; let its CSS patch pass through too.
+int np_webpatch_try_open(const char *path, int oflag) {
+    return try_serve(path, oflag);
+}
+
+static int try_both(const char *path, int oflag) {
+    int fd = try_serve(path, oflag);
+    if (fd >= 0 || !path || (oflag & WRITE_INTENT))
+        return fd;
+    size_t len = strlen(path);
+    if (len < 4 || strcmp(path + len - 4, ".css") != 0)
+        return -1;
+    int (*other)(const char *, int) = dlsym(RTLD_DEFAULT, "sx_whatsnew_try_open");
+    return other ? other(path, oflag) : -1;
+}
+
 static mode_t creat_mode(int oflag, va_list ap) {
     if (oflag & O_CREAT)
         return (mode_t)va_arg(ap, int);
@@ -173,7 +190,7 @@ static int np_open(const char *path, int oflag, ...) {
     mode_t mode = creat_mode(oflag, ap);
     va_end(ap);
 
-    int served = try_serve(path, oflag);
+    int served = try_both(path, oflag);
     if (served >= 0)
         return served;
     return sys_open(path, oflag, mode);
@@ -185,7 +202,7 @@ static int np_openat(int dirfd, const char *path, int oflag, ...) {
     va_end(ap);
 
     if (path && path[0] == '/') {
-        int served = try_serve(path, oflag);
+        int served = try_both(path, oflag);
         if (served >= 0)
             return served;
     }
@@ -221,7 +238,7 @@ static FILE *np_fopen(const char *path, const char *mode) {
         return NULL;
     }
 
-    int served = try_serve(path, oflag);
+    int served = try_both(path, oflag);
     if (served >= 0) {
         FILE *fp = fdopen(served, mode);
         if (fp)

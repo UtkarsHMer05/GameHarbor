@@ -3,6 +3,15 @@ import Foundation
 @main
 enum Launch {
     static func main() {
+        if CommandLine.arguments.dropFirst().first == "--apply-source-update" {
+            do {
+                try SourceUpdateCommand.run()
+                exit(0)
+            } catch {
+                FileHandle.standardError.write(Data("\(error.localizedDescription)\n".utf8))
+                exit(1)
+            }
+        }
         if CommandLine.arguments.dropFirst().first == RebuildPrefixCommand.flag {
             // Out of the launching process group, so stopping the game in Steam cannot take
             // the rebuild with it.
@@ -21,6 +30,26 @@ enum Launch {
             RemoveEverythingCommand.run()
         }
         NotProtonApp.main()
+    }
+}
+
+enum SourceUpdateCommand {
+    static func run(
+        steamRunning: () -> Bool = { SteamBundle.isRunning },
+        install: () throws -> Void = {
+            let result = try SteamInstaller.run(stopClient: { _, _ in
+                guard !SteamBundle.isRunning else {
+                    throw StepFailure(step: "Update NotProton", detail: "Close Steam before updating.")
+                }
+                return false
+            })
+            try SteamInstaller.finish(result)
+        }
+    ) throws {
+        guard !steamRunning() else {
+            throw StepFailure(step: "Update NotProton", detail: "Close Steam before updating.")
+        }
+        try install()
     }
 }
 
