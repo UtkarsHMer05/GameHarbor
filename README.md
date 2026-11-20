@@ -1,6 +1,6 @@
 # GameHarbor
 
-GameHarbor is my personal macOS project for managing Steam compatibility tools and running Windows Steam games through CrossOver on Apple silicon. The desktop app manages the Steam integration, runners, and per-game Wine prefixes. SteamPlayMac is a companion built from the same repository. It has its own config app, launcher, and `SteamPlayMac.dylib`.
+GameHarbor is my personal macOS project for managing Steam compatibility tools and running Windows Steam games through CrossOver on Apple silicon. The desktop app manages the Steam integration, runners, and per-game Wine prefixes. SteamPlayMac is a app which when you download you will know🤫.
 
 ## Install
 
@@ -8,7 +8,7 @@ You need an Apple silicon Mac running macOS 15 or later. Install Steam and open 
 
 1. Download `GameHarbor.dmg` or `SteamPlayMac.dmg` from the [latest release](https://github.com/UtkarsHMer05/GameHarbor/releases/latest). Open the disk image and drag the app you want to Applications.
 2. In GameHarbor, review the Steam and CrossOver status, install the integration, and restart Steam. Select the **GameHarbor** compatibility tool for the game.
-3. If you want the companion, open `SteamPlayMac Config.app`. Choose **Install** for a fresh setup or **Update** to switch an existing integration to `SteamPlayMac.dylib`.
+3. If you want the companion, open `SteamPlayMac Config.app`. and research the other things which you need
 
 Downloads require access to this repository. These builds use ad hoc signing and may require macOS approval on first open. A successful build and test run on `main` publishes both disk images to Releases. Steam updates can move the client to a build without a matching profile. GameHarbor keeps its existing tool IDs and support directory. SteamPlayMac uses `~/Library/Application Support/SteamPlayMac` and migrates the previous settings directory on first use.
 
