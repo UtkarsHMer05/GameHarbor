@@ -6,11 +6,11 @@ GameHarbor is my personal macOS project for managing Steam compatibility tools a
 
 You need an Apple silicon Mac running macOS 15 or later. Install Steam and open it once to download the Steam client. GameHarbor’s Windows compatibility tool also requires a supported version of CrossOver and a valid CrossOver license. A Steam client build must have a matching signature profile for the integration you install.
 
-1. Open the repository’s **Actions** tab, select **app**, and download the **GameHarbor** artifact from a successful run. Extract the download and the application ZIP inside it, then move `GameHarbor.app` to Applications.
-2. Open GameHarbor and review its Steam and CrossOver status. Use its install action to deploy the integration, then restart Steam and select the **GameHarbor** compatibility tool for the game.
-3. If you want the companion, download **SteamPlayMac** from a successful **SteamPlayMac** workflow run. Put `SteamPlayMac Config.app` in Applications. In its Install pane, choose **Install** for a fresh setup or **Update** to switch an existing integration to `SteamPlayMac.dylib`. Its separately packaged launcher is available for setups that launch Steam through the companion.
+1. Download `GameHarbor.dmg` or `SteamPlayMac.dmg` from the [latest release](https://github.com/UtkarsHMer05/GameHarbor/releases/latest). Open the disk image and drag the app you want to Applications.
+2. In GameHarbor, review the Steam and CrossOver status, install the integration, and restart Steam. Select the **GameHarbor** compatibility tool for the game.
+3. If you want the companion, open `SteamPlayMac Config.app`. Choose **Install** for a fresh setup or **Update** to switch an existing integration to `SteamPlayMac.dylib`. Its disk image also includes the optional `SteamPlayMac.app` launcher.
 
-Downloads require access to this repository. Steam updates can move the client to a build without a matching profile. GameHarbor keeps its existing tool IDs and support directory. SteamPlayMac uses `~/Library/Application Support/SteamPlayMac` and migrates the previous settings directory on first use.
+Downloads require access to this repository. These builds use ad hoc signing and may require macOS approval on first open. A successful build and test run on `main` publishes both disk images to Releases. Steam updates can move the client to a build without a matching profile. GameHarbor keeps its existing tool IDs and support directory. SteamPlayMac uses `~/Library/Application Support/SteamPlayMac` and migrates the previous settings directory on first use.
 
 ## Architecture
 
@@ -52,6 +52,8 @@ bash SteamPlayMac/SteamPlayMac-app/make_app.sh
 make -C SteamPlayMac/launcher app
 bash SteamPlayMac/checks/run.sh
 ```
+
+Run `make -C SteamPlayMac dmg` to package both companion apps in `SteamPlayMac/out/SteamPlayMac.dmg`.
 
 The companion build produces `SteamPlayMac/out/SteamPlayMac.dylib`, the config app in `SteamPlayMac/SteamPlayMac-app/.build/`, and the launcher in `SteamPlayMac/launcher/build/`.
 

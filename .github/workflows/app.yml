@@ -98,8 +98,10 @@ jobs:
       - name: Stage the app payload
         run: make app-payload
 
-      - name: Build the app
-        run: make app
+      - name: Build the app and disk image
+        run: |
+          make app-dmg
+          hdiutil verify out/GameHarbor.dmg
 
       - name: Check the minimum macOS version
         run: make -s mincheck
@@ -145,13 +147,45 @@ jobs:
       - name: Run the Swift tests
         run: make -s app-tests
 
-      - name: Package the app bundle
-        run: |
-          mkdir -p out/artifact
-          ditto -c -k --keepParent out/GameHarbor.app out/artifact/GameHarbor.zip
-
-      - name: Upload the app bundle
+      - name: Upload the GameHarbor disk image
         uses: actions/upload-artifact@v4
         with:
           name: GameHarbor
-          path: out/artifact
+          path: out/GameHarbor.dmg
+          if-no-files-found: error
+
+  steamplaymac:
+    uses: ./.github/workflows/steamplaymac.yml
+
+  release:
+    needs: [build, steamplaymac]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: release-main
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: '*'
+          merge-multiple: true
+          path: release
+
+      - name: Publish both disk images
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          test -s release/GameHarbor.dmg
+          test -s release/SteamPlayMac.dmg
+          [[ "$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)" == "$GITHUB_SHA" ]] || exit 0
+          tag="build-$GITHUB_SHA"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            exit 0
+          fi
+          gh release create "$tag" release/GameHarbor.dmg release/SteamPlayMac.dmg \
+            --target "$GITHUB_SHA" --latest \
+            --title "GameHarbor and SteamPlayMac (${GITHUB_SHA:0:7})" \
+            --notes "For Apple silicon Macs running macOS 15 or later. GameHarbor's Windows compatibility tool requires CrossOver. The apps are ad hoc signed and not notarized."

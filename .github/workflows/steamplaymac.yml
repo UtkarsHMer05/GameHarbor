@@ -1,11 +1,7 @@
 name: SteamPlayMac
 
 on:
-  push:
-    branches: [main]
-    paths: ['SteamPlayMac/**', '.github/workflows/steamplaymac.yml']
-  pull_request:
-    paths: ['SteamPlayMac/**', '.github/workflows/steamplaymac.yml']
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -25,18 +21,13 @@ jobs:
           make -j"$(sysctl -n hw.ncpu)"
           bash checks/run.sh
 
-      - name: Package the config app and launcher
+      - name: Package and verify the disk image
         run: |
-          bash SteamPlayMac-app/make_app.sh
-          make -C launcher app
-          mkdir -p out/artifact
-          ditto -c -k --keepParent 'SteamPlayMac-app/.build/SteamPlayMac Config.app' out/artifact/SteamPlayMac-Config.zip
-          ditto -c -k --keepParent launcher/build/SteamPlayMac.app out/artifact/SteamPlayMac-Launcher.zip
-          cp ../licenses/THIRD-PARTY.txt ../licenses/LICENSE out/artifact/
-          cp vendor/dobby/LICENSE out/artifact/Dobby-LICENSE
-          cp SteamPlayMac-app/.build/checkouts/Sparkle/LICENSE out/artifact/Sparkle-LICENSE
+          make dmg
+          hdiutil verify out/SteamPlayMac.dmg
 
       - uses: actions/upload-artifact@v4
         with:
           name: SteamPlayMac
-          path: SteamPlayMac/out/artifact
+          path: SteamPlayMac/out/SteamPlayMac.dmg
+          if-no-files-found: error
