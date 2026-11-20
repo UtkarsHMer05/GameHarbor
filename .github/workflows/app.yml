@@ -180,6 +180,7 @@ jobs:
         run: |
           test -s release/GameHarbor.dmg
           test -s release/SteamPlayMac.dmg
+          [[ "$(gh api "repos/$GH_REPO" --jq .private)" == false ]] || exit 0
           [[ "$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)" == "$GITHUB_SHA" ]] || exit 0
           tag="build-$GITHUB_SHA"
           if gh release view "$tag" >/dev/null 2>&1; then
