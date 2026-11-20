@@ -535,7 +535,7 @@ printf 'x86 wine' > "$game_app/Contents/MacOS/wine"
 printf 'legacy loader' > "$child_loader"
 runner_build
 is "Rosetta reuse" "game's wine.app already up to date" "$(cat "$log")"
-is "cached child loader is restored" yes "$([ -x "$child_loader" ] && rg -q 'NOTPROTON_WINE_INSERTS' "$child_loader" && echo yes || echo no)"
+is "cached child loader is restored" yes "$([ -x "$child_loader" ] && grep -q 'NOTPROTON_WINE_INSERTS' "$child_loader" && echo yes || echo no)"
 printf 'x86 wine 2' > "$T/new-wine"
 mv "$T/new-wine" "$wine_unix/wine"
 runner_build
