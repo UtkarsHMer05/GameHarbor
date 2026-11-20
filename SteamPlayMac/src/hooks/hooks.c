@@ -1,6 +1,7 @@
 // Hook registration and installation
 #include "hooks.h"
 #include "../util/log.h"
+#include "../util/file.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -9,7 +10,7 @@ typedef void (*sx_instrument_cb_t)(void *address, void *ctx);
 extern int DobbyInstrument(void *address, sx_instrument_cb_t pre_handler);
 
 static int name_in_env_list(const char *env, const char *name) {
-    const char *dis = getenv(env);
+    const char *dis = sx_steamplaymac_getenv(env);
     if (!dis || !dis[0] || !name) return 0;
     size_t nlen = strlen(name);
     const char *p = dis;
@@ -24,11 +25,11 @@ static int name_in_env_list(const char *env, const char *name) {
 }
 
 static int hook_is_disabled(const char *name) {
-    return name_in_env_list("MACSTEAM_DISABLE", name);
+    return name_in_env_list("DISABLE", name);
 }
 
 int sx_hook_passthrough(const char *name) {
-    return name_in_env_list("MACSTEAM_PASSTHROUGH", name);
+    return name_in_env_list("PASSTHROUGH", name);
 }
 
 typedef struct {
@@ -80,7 +81,7 @@ int sx_hooks_install_all(sx_resolve_result_t *resolved, int *total_out) {
             total++;
 
             if (hook_is_disabled(hk->name)) {
-                SX_WARN("[%s] %s: DISABLED via MACSTEAM_DISABLE", mod->module_name, hk->name);
+                SX_WARN("[%s] %s: DISABLED via STEAMPLAYMAC_DISABLE", mod->module_name, hk->name);
                 continue;
             }
 

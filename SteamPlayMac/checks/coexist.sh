@@ -14,7 +14,7 @@ np="$root/out/notproton.dylib"
 ms="$root/SteamPlayMac/out/SteamPlayMac.dylib"
 
 read_file() {
-    HOME="$tmp/home" MACSTEAM_CONFIG="$tmp/config.yaml" DYLD_INSERT_LIBRARIES="$1" \
+    HOME="$tmp/home" STEAMPLAYMAC_CONFIG="$tmp/config.yaml" DYLD_INSERT_LIBRARIES="$1" \
         "$tmp/read" "$2" "$3" > "$4"
 }
 

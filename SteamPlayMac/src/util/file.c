@@ -8,6 +8,7 @@
 #include <pwd.h>
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <sys/stat.h>
 
 uint8_t *sx_slurp_file(const char *path, size_t *out_len) {
@@ -60,7 +61,7 @@ int sx_file_patch_bytes(const char *path, const uint8_t *find, size_t find_len,
 }
 
 void sx_file_config_path(char *buf, size_t bufsz) {
-    const char *env = getenv("MACSTEAM_CONFIG");
+    const char *env = sx_steamplaymac_getenv("CONFIG");
     if (env && env[0]) {
         snprintf(buf, bufsz, "%s", env);
         return;
@@ -129,9 +130,27 @@ void sx_steam_appcache_path(char *buf, size_t bufsz, const char *home, const cha
     snprintf(buf, bufsz, "%s/Library/Application Support/Steam/appcache/%s", home, rel);
 }
 
+const char *sx_steamplaymac_getenv(const char *key) {
+    char name[64];
+    snprintf(name, sizeof(name), "STEAMPLAYMAC_%s", key);
+    const char *value = getenv(name);
+    if (value) return value;
+    // Accept overrides from existing launch scripts during the rename.
+    snprintf(name, sizeof(name), "MACSTEAM_%s", key);
+    return getenv(name);
+}
+
 void sx_steamplaymac_support_path(char *buf, size_t bufsz, const char *home, const char *rel) {
+    char current[PATH_MAX], legacy[PATH_MAX];
+    snprintf(current, sizeof(current), "%s/Library/Application Support/SteamPlayMac", home);
+    snprintf(legacy, sizeof(legacy), "%s/Library/Application Support/macsteam", home);
+    const char *root = current;
+    // Never replace an existing settings directory or hide old settings after a failed move.
+    if (access(current, F_OK) != 0 && access(legacy, F_OK) == 0 &&
+        renamex_np(legacy, current, RENAME_EXCL) != 0 && access(current, F_OK) != 0)
+        root = legacy;
     if (rel && rel[0])
-        snprintf(buf, bufsz, "%s/Library/Application Support/macsteam/%s", home, rel);
+        snprintf(buf, bufsz, "%s/%s", root, rel);
     else
-        snprintf(buf, bufsz, "%s/Library/Application Support/macsteam", home);
+        snprintf(buf, bufsz, "%s", root);
 }

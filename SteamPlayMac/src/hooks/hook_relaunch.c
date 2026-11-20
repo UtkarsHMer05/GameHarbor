@@ -1,6 +1,7 @@
 // Relaunch persistence
 #include "hooks.h"
 #include "../util/log.h"
+#include "../util/file.h"
 
 #include <spawn.h>
 #include <string.h>
@@ -41,7 +42,7 @@ static int is_open_restart(char *const argv[]) {
 }
 
 static char *build_reinject_cmd(void) {
-    const char *app = getenv("MACSTEAM_LAUNCHER_APP");
+    const char *app = sx_steamplaymac_getenv("LAUNCHER_APP");
     if (!app || !app[0]) app = SX_LAUNCHER_APP;
 
     char *cmd = malloc(PATH_MAX * 2);
@@ -81,7 +82,7 @@ static char **maybe_rewrite(char *const argv[]) {
     if (!is_open_restart(argv))
         return NULL;
 
-    const char *app = getenv("MACSTEAM_LAUNCHER_APP");
+    const char *app = sx_steamplaymac_getenv("LAUNCHER_APP");
     if (!app || !app[0]) app = SX_LAUNCHER_APP;
     if (access(app, F_OK) != 0) return NULL;
 

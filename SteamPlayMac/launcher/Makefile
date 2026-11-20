@@ -1,6 +1,6 @@
 APP_NAME   := SteamPlayMac
 BIN        := $(APP_NAME)
-SRC        := spawn_client.c
+SRCS       := spawn_client.c ../src/util/file.c
 BUILD      := build
 APP        := $(BUILD)/$(APP_NAME).app
 DEPLOY_DIR := /Applications
@@ -20,8 +20,8 @@ $(BUILD):
 	mkdir -p $(BUILD)
 
 
-$(BUILD)/$(BIN): $(SRC) | $(BUILD)
-	$(CC) $(CFLAGS) -o $@ $(SRC)
+$(BUILD)/$(BIN): $(SRCS) ../src/util/file.h | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $(SRCS)
 	$(CODESIGN) $@
 
 

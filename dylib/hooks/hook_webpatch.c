@@ -163,7 +163,7 @@ static int try_serve(const char *path, int oflag) {
     return fd;
 }
 
-// MacSteam interposes the same functions; let its CSS patch pass through too.
+// SteamPlayMac interposes the same functions; let its CSS patch pass through too.
 int np_webpatch_try_open(const char *path, int oflag) {
     return try_serve(path, oflag);
 }

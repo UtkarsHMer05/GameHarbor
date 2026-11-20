@@ -654,7 +654,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.macsteam.macsteam-dylib";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.steamplaymac.dylib";
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -673,7 +673,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.7.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.macsteam.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.steamplaymac.app;
 				PRODUCT_MODULE_NAME = SteamPlayMacApp;
 				PRODUCT_NAME = "SteamPlayMac Config";
 				SDKROOT = macosx;
@@ -754,7 +754,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.macsteam.macsteam-dylib";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.steamplaymac.dylib";
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -773,7 +773,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.7.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.macsteam.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.steamplaymac.app;
 				PRODUCT_MODULE_NAME = SteamPlayMacApp;
 				PRODUCT_NAME = "SteamPlayMac Config";
 				SDKROOT = macosx;
@@ -789,7 +789,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.macsteam.macsteam-launcher";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.steamplaymac.launcher";
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -803,7 +803,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.macsteam.macsteam-launcher";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.steamplaymac.launcher";
 				SDKROOT = macosx;
 			};
 			name = Debug;

@@ -12,6 +12,8 @@ uint64_t sx_steam_build(const char *home);
 
 void sx_steam_appcache_path(char *buf, size_t bufsz, const char *home, const char *rel);
 
+const char *sx_steamplaymac_getenv(const char *key);
+
 void sx_steamplaymac_support_path(char *buf, size_t bufsz, const char *home, const char *rel);
 
 void sx_file_config_path(char *buf, size_t bufsz);

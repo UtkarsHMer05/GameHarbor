@@ -1,6 +1,6 @@
 name: SteamPlayMac
 options:
-  bundleIdPrefix: com.macsteam
+  bundleIdPrefix: com.steamplaymac
   deploymentTarget:
     macOS: "13.0"
   createIntermediateGroups: true
@@ -33,7 +33,7 @@ targets:
       properties:
         CFBundleName: SteamPlayMac Config
         CFBundleDisplayName: SteamPlayMac Config
-        CFBundleIdentifier: com.macsteam.app
+        CFBundleIdentifier: com.steamplaymac.app
         CFBundleExecutable: SteamPlayMacApp
         CFBundleIconFile: AppIcon
         CFBundlePackageType: APPL
@@ -46,7 +46,7 @@ targets:
         NSPrincipalClass: NSApplication
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.macsteam.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.steamplaymac.app
         PRODUCT_NAME: SteamPlayMac Config
         PRODUCT_MODULE_NAME: SteamPlayMacApp
         EXECUTABLE_NAME: SteamPlayMacApp

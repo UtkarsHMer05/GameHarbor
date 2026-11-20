@@ -136,11 +136,11 @@ test:
 	 echo "==> Running C aob-scanner probe..."; \
 	 $(AOB_PROBE_BIN); \
 	 echo "==> Running C anchor-resolver probe..."; \
-	 MACSTEAM_SCRATCH="$(OUT_DIR)/tests" $(ANCHOR_PROBE_BIN); \
+	 STEAMPLAYMAC_SCRATCH="$(OUT_DIR)/tests" $(ANCHOR_PROBE_BIN); \
 	 echo "==> Running SteamPlayMac-app tests..."; \
 	 cd SteamPlayMac-app && \
-	   MACSTEAM_PROBE="$(CURDIR)/$(PROBE_BIN)" \
-	   MACSTEAM_CFG="$(HOME)/Library/Application Support/macsteam/config.yaml" \
+	   STEAMPLAYMAC_PROBE="$(CURDIR)/$(PROBE_BIN)" \
+	   STEAMPLAYMAC_CFG="$(HOME)/Library/Application Support/SteamPlayMac/config.yaml" \
 	   swift test
 
 -include $(DEPS)

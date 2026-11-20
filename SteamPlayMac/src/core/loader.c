@@ -34,7 +34,7 @@ static int profile_matches_client(const sx_sigdb_t *db, const char *path) {
         strcasecmp(actual, db->steamclient_sha256_arm64) == 0;
 }
 
-__attribute__((visibility("default"))) const char *macsteam_version(void) {
+__attribute__((visibility("default"))) const char *steamplaymac_version(void) {
     return STEAMPLAYMAC_VERSION;
 }
 
@@ -95,7 +95,7 @@ static void corrupt_packageinfo_vdf(void) {
 
 static void
 get_sigdb_path(char *buf, size_t buf_size, uint64_t build) {
-    const char *env = getenv("MACSTEAM_SIG");
+    const char *env = sx_steamplaymac_getenv("SIG");
     if (env && env[0]) {
         strncpy(buf, env, buf_size - 1);
         buf[buf_size - 1] = '\0';

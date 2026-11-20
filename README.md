@@ -10,7 +10,7 @@ You need an Apple silicon Mac running macOS 15 or later. Install Steam and open 
 2. Open GameHarbor and review its Steam and CrossOver status. Use its install action to deploy the integration, then restart Steam and select the **GameHarbor** compatibility tool for the game.
 3. If you want the companion, download **SteamPlayMac** from a successful **SteamPlayMac** workflow run. Put `SteamPlayMac Config.app` in Applications. In its Install pane, choose **Install** for a fresh setup or **Update** to switch an existing integration to `SteamPlayMac.dylib`. Its separately packaged launcher is available for setups that launch Steam through the companion.
 
-Downloads require access to this repository. Steam updates can move the client to a build without a matching profile. Existing installations retain their support directories and tool IDs so the rename preserves settings, game selections, and prefixes.
+Downloads require access to this repository. Steam updates can move the client to a build without a matching profile. GameHarbor keeps its existing tool IDs and support directory. SteamPlayMac uses `~/Library/Application Support/SteamPlayMac` and migrates the previous settings directory on first use.
 
 ## Architecture
 

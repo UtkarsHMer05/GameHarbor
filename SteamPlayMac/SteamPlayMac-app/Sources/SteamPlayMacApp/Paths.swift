@@ -4,9 +4,24 @@ import Foundation
 
 enum Paths {
     static var configDir: URL {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appendingPathComponent("Library/Application Support/macsteam", isDirectory: true)
+        configDirectory(in: FileManager.default.homeDirectoryForCurrentUser)
     }
+
+    static func configDirectory(in home: URL) -> URL {
+        let files = FileManager.default
+        let support = home.appendingPathComponent("Library/Application Support", isDirectory: true)
+        let current = support.appendingPathComponent("SteamPlayMac", isDirectory: true)
+        let legacy = support.appendingPathComponent("macsteam", isDirectory: true)
+        if !files.fileExists(atPath: current.path), files.fileExists(atPath: legacy.path) {
+            do {
+                try files.moveItem(at: legacy, to: current)
+            } catch {
+                if !files.fileExists(atPath: current.path) { return legacy }
+            }
+        }
+        return current
+    }
+
     static var configFile: URL {
         configDir.appendingPathComponent("config.yaml")
     }

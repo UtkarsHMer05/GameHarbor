@@ -31,7 +31,7 @@ int sx_log_once_seen(const void *site, unsigned long key) {
 }
 
 void sx_log_init(void) {
-    const char *env = getenv("MACSTEAM_LOG_LEVEL");
+    const char *env = sx_steamplaymac_getenv("LOG_LEVEL");
     if (env) {
         int v = atoi(env);
         if (v >= 0 && v <= 3)

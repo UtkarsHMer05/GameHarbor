@@ -54,7 +54,7 @@ enum ManifestFetcher {
             let url = archive.appendingPathComponent(String(ref.depotID))
                 .appendingPathComponent(String(gid))
             var request = URLRequest(url: url, timeoutInterval: 60)
-            request.setValue("macSteam/1.0", forHTTPHeaderField: "User-Agent")
+            request.setValue("SteamPlayMac/1.0", forHTTPHeaderField: "User-Agent")
             let (stream, response) = try await session.bytes(for: request)
             defer { stream.task.cancel() }
             guard let http = response as? HTTPURLResponse, http.statusCode == 200,

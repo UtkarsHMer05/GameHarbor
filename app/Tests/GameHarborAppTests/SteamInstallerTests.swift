@@ -284,7 +284,7 @@ struct SteamInstallerTests {
 
     @Test("An update keeps SteamPlayMac in the Steam library list")
     func preservesSteamPlayMac() async throws {
-        let work = try scratchDirectory("install-macsteam")
+        let work = try scratchDirectory("install-steamplaymac")
         defer { try? FileManager.default.removeItem(at: work) }
         let fixture = try await self.fixture(into: work)
         let steamPlayMac = fixture.app.appending(path: "Contents/MacOS/SteamPlayMac.dylib")

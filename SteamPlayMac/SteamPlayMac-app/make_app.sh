@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 
 APP=".build/SteamPlayMac Config.app"
 BIN_NAME="SteamPlayMacApp"
-BUNDLE_ID="com.macsteam.app"
+BUNDLE_ID="com.steamplaymac.app"
 ICON_SRC="AppIcon.icns"
 
 if [ ! -f "$ICON_SRC" ]; then

@@ -28,16 +28,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentMinSize = NSSize(width: 720, height: 480)
 
         window.autorecalculatesKeyViewLoop = true
-        window.identifier = NSUserInterfaceItemIdentifier("MacsteamMainWindow")
+        window.identifier = NSUserInterfaceItemIdentifier("SteamPlayMacMainWindow")
 
-        let toolbar = NSToolbar(identifier: "MacsteamMainToolbar")
+        let toolbar = NSToolbar(identifier: "SteamPlayMacMainToolbar")
         toolbar.delegate = mainVC
         toolbar.displayMode = .iconOnly
         toolbar.allowsUserCustomization = false
         window.toolbar = toolbar
         window.toolbarStyle = .unified
 
-        window.setFrameAutosaveName("MacsteamMainWindow.v2")
+        window.setFrameAutosaveName("SteamPlayMacMainWindow.v2")
         if !window.setFrameUsingName(window.frameAutosaveName) {
             window.setContentSize(NSSize(width: 820, height: 560))
             window.center()

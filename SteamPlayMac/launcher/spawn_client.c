@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <mach-o/dyld.h>
+#include "../src/util/file.h"
 
 extern char **environ;
 
@@ -22,24 +23,8 @@ extern char **environ;
 #define SX_BUNDLE_SUFFIX "/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS"
 #endif
 
-#ifndef SX_STATE_SUFFIX
-#define SX_STATE_SUFFIX "/Library/Application Support/macsteam"
-#endif
-#ifndef SX_DYLIB_SUFFIX
-#define SX_DYLIB_SUFFIX SX_STATE_SUFFIX "/SteamPlayMac.dylib"
-#endif
-#ifndef SX_LOG_SUFFIX
-#define SX_LOG_SUFFIX SX_STATE_SUFFIX "/launcher.log"
-#endif
-#ifndef SX_SIG_DIR_SUFFIX
-#define SX_SIG_DIR_SUFFIX SX_STATE_SUFFIX "/signatures/macos.arm64"
-#endif
 #ifndef SX_STUB_BUNDLE
 #define SX_STUB_BUNDLE "/Applications/Steam.app"
-#endif
-
-#ifndef SX_WRAPPER_SUFFIX
-#define SX_WRAPPER_SUFFIX SX_STATE_SUFFIX "/Steam.app"
 #endif
 
 static const char *STUB_BUNDLE = SX_STUB_BUNDLE;
@@ -125,7 +110,7 @@ static void deploy_bundled_signatures(const char *home, FILE *log) {
     if (!d) return;   // not a bundled build
 
     char dstdir[PATH_MAX];
-    snprintf(dstdir, sizeof dstdir, "%s" SX_SIG_DIR_SUFFIX, home);
+    sx_steamplaymac_support_path(dstdir, sizeof dstdir, home, "signatures/macos.arm64");
     mkdir_p(dstdir);
 
     int n = 0;
@@ -145,7 +130,7 @@ static void deploy_bundled_signatures(const char *home, FILE *log) {
 
 static void deploy_bundled_dylib(const char *home, char *out, size_t n, FILE *log) {
     char dir[PATH_MAX], dst[PATH_MAX], dst_ver[PATH_MAX];
-    snprintf(dir, sizeof dir, "%s" SX_STATE_SUFFIX, home);
+    sx_steamplaymac_support_path(dir, sizeof dir, home, NULL);
     snprintf(dst, sizeof dst, "%s/SteamPlayMac.dylib", dir);
     snprintf(dst_ver, sizeof dst_ver, "%s/SteamPlayMac.dylib.version", dir);
     snprintf(out, n, "%s", dst);
@@ -170,7 +155,7 @@ static void deploy_bundled_dylib(const char *home, char *out, size_t n, FILE *lo
 
     // Signatures missing? deploy even when the dylib itself is "current".
     char sigdir[PATH_MAX];
-    snprintf(sigdir, sizeof sigdir, "%s" SX_SIG_DIR_SUFFIX, home);
+    sx_steamplaymac_support_path(sigdir, sizeof sigdir, home, "signatures/macos.arm64");
     int sig_missing = (stat(sigdir, &st) != 0);
 
     if (bv[0] && strcmp(bv, dv) == 0 && !sig_missing) {
@@ -215,7 +200,7 @@ static int relink(const char *target, const char *dst) {
 static int build_glass_wrapper(const char *home, const char *inner_contents,
                                char *out_exe, size_t n, FILE *log) {
     char wrap[PATH_MAX];
-    snprintf(wrap, sizeof wrap, "%s" SX_WRAPPER_SUFFIX, home);
+    sx_steamplaymac_support_path(wrap, sizeof wrap, home, "Steam.app");
 
     char c[PATH_MAX], res[PATH_MAX];
     snprintf(c, sizeof c, "%s/Contents", wrap);
@@ -314,14 +299,14 @@ int main(int argc, char **argv) {
     char state_dir[PATH_MAX];
     snprintf(bundle_macos, sizeof bundle_macos, "%s%s", home, SX_BUNDLE_SUFFIX);
     snprintf(exe, sizeof exe, "%s/steam_osx", bundle_macos);
-    snprintf(state_dir, sizeof state_dir, "%s" SX_STATE_SUFFIX, home);
-    snprintf(log_path, sizeof log_path, "%s%s", home, SX_LOG_SUFFIX);
+    sx_steamplaymac_support_path(state_dir, sizeof state_dir, home, NULL);
+    snprintf(log_path, sizeof log_path, "%s/launcher.log", state_dir);
     mkdir_p(state_dir);
 
     FILE *log = fopen(log_path, "a");
     if (!log) log = stderr;
 
-    const char *dylib_env = getenv("MACSTEAM_DYLIB");
+    const char *dylib_env = sx_steamplaymac_getenv("DYLIB");
     if (dylib_env && dylib_env[0]) {
         snprintf(dylib, sizeof dylib, "%s", dylib_env);
     } else {

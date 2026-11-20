@@ -50,7 +50,7 @@ struct SteamBundleTests {
         case absent
         case own
         case ownWithoutControllerBlock
-        case macSteam
+        case legacyCompanion
         case other(String)
     }
 
@@ -86,10 +86,10 @@ struct SteamBundleTests {
             plist[SteamBundle.environmentKey] = [
                 SteamBundle.insertKey: own.path(percentEncoded: false)
             ]
-        case .macSteam:
-            let macSteam = macOS.appending(path: "macsteam.dylib")
-            try Data("stand-in\n".utf8).write(to: macSteam)
-            plist[SteamBundle.environmentKey] = [SteamBundle.insertKey: macSteam.path(percentEncoded: false)]
+        case .legacyCompanion:
+            let legacyLibrary = macOS.appending(path: "macsteam.dylib")
+            try Data("stand-in\n".utf8).write(to: legacyLibrary)
+            plist[SteamBundle.environmentKey] = [SteamBundle.insertKey: legacyLibrary.path(percentEncoded: false)]
         case .other(let value):
             plist[SteamBundle.environmentKey] = [SteamBundle.insertKey: value]
         }
@@ -141,9 +141,9 @@ struct SteamBundleTests {
         )
     }
 
-    @Test("MacSteam on its own permits installing NotProton")
-    func macSteamWithoutNotProton() throws {
-        #expect(try deployment(insert: .macSteam, dylib: false, version: nil) == .notInstalled)
+    @Test("An older companion installation permits installing GameHarbor")
+    func legacyCompanionWithoutGameHarbor() throws {
+        #expect(try deployment(insert: .legacyCompanion, dylib: false, version: nil) == .notInstalled)
     }
 
     // The insert still names the bundle's old location, so the next install has to rewrite it

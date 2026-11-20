@@ -10,6 +10,14 @@ struct SafetyChecks {
         let root = fm.temporaryDirectory.appendingPathComponent("steamplaymac-safety-\(UUID().uuidString)")
         try fm.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: root) }
+        let legacyConfig = root.appendingPathComponent("Library/Application Support/macsteam")
+        try fm.createDirectory(at: legacyConfig, withIntermediateDirectories: true)
+        try "original".write(to: legacyConfig.appendingPathComponent("config.yaml"), atomically: true, encoding: .utf8)
+        let config = Paths.configDirectory(in: root)
+        precondition(config.lastPathComponent == "SteamPlayMac" && !fm.fileExists(atPath: legacyConfig.path))
+        let migrated = try String(contentsOf: config.appendingPathComponent("config.yaml"), encoding: .utf8)
+        precondition(migrated == "original" && Paths.configDirectory(in: root) == config)
+
         let package = root.appendingPathComponent("Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/package")
         try fm.createDirectory(at: package, withIntermediateDirectories: true)
         func put(_ name: String, _ value: String) throws {
