@@ -14,6 +14,10 @@ struct TemplateCleanupTests {
         var template: URL { SupportPaths.prefixTemplates(forBuild: "26.3.0.39832", in: library)[0] }
         var lock: URL { library.compatdata.appending(path: ".notproton-template.lock") }
 
+        var acquireInstallationLock: @Sendable () throws -> DeploymentContent.InstallationLock {
+            { try DeploymentContent.acquireInstallationLock(in: root, steamFolder: nil) }
+        }
+
         init() throws {
             root = try scratchDirectory("template-cleanup")
             try FileManager.default.createDirectory(at: template, withIntermediateDirectories: true)
@@ -226,12 +230,14 @@ struct TemplateCleanupTests {
         try #require(flock(fd, LOCK_EX | LOCK_NB) == 0)
         let status = SystemStatus()
 
-        await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library])
+        await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library],
+            acquireInstallationLock: layout.acquireInstallationLock)
         #expect(status.templateCleanupFailure == nil)
         #expect(FileManager.default.fileExists(atPath: layout.template.path))
 
         try #require(flock(fd, LOCK_UN) == 0)
-        await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library])
+        await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library],
+            acquireInstallationLock: layout.acquireInstallationLock)
         #expect(status.templateCleanupFailure == nil)
         #expect(!FileManager.default.fileExists(atPath: layout.template.path))
         #expect(FileManager.default.fileExists(atPath: layout.lock.path))
@@ -247,12 +253,14 @@ struct TemplateCleanupTests {
         try FileManager.default.moveItem(at: layout.library.root, to: unmounted)
         let status = SystemStatus()
 
-        await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library])
+        await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library],
+            acquireInstallationLock: layout.acquireInstallationLock)
         #expect(!FileManager.default.fileExists(atPath: layout.library.root.path))
         #expect(status.templateCleanupFailure == nil)
 
         try FileManager.default.moveItem(at: unmounted, to: layout.library.root)
-        await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library])
+        await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library],
+            acquireInstallationLock: layout.acquireInstallationLock)
         #expect(!FileManager.default.fileExists(atPath: layout.template.path))
         #expect(status.templateCleanupFailure == nil)
     }
@@ -274,16 +282,19 @@ struct TemplateCleanupTests {
         try #require(clonefile(file.path, otherTemplate.appending(path: "ntdll.dll").path, 0) == 0)
         let status = SystemStatus()
 
-        await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library, other])
+        await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library, other],
+            acquireInstallationLock: layout.acquireInstallationLock)
         #expect(try #require(status.templateSizes[build]?.values.reduce(0, +)) >= 8 << 20)
         #expect(try #require(status.runnerSizes[build]) < 1 << 20)
         let before = try #require(status.templateSizes[build]?.values.reduce(0, +))
 
         try Data(repeating: 8, count: 4 << 20).write(to: layout.template.appending(path: "new-file"))
-        await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library, other])
+        await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library, other],
+            acquireInstallationLock: layout.acquireInstallationLock)
         #expect(try #require(status.templateSizes[build]?.values.reduce(0, +)) >= before + (4 << 20))
 
-        await status.refreshRunnerStorage(runners: layout.runners, libraries: [other])
+        await status.refreshRunnerStorage(runners: layout.runners, libraries: [other],
+            acquireInstallationLock: layout.acquireInstallationLock)
         #expect(try #require(status.templateSizes[build]?.values.reduce(0, +)) < 5 << 20)
     }
 
@@ -303,7 +314,8 @@ struct TemplateCleanupTests {
         }
         let status = SystemStatus()
 
-        await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library])
+        await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library],
+            acquireInstallationLock: layout.acquireInstallationLock)
         let sizes = try #require(status.templateSizes[build])
         #expect(try #require(sizes[.fex]) >= 4 << 20)
         #expect(try #require(sizes[.rosetta]) >= 1 << 20)
@@ -329,16 +341,14 @@ struct TemplateCleanupTests {
         }
         let target = SupportPaths.runnerRoot(forBuild: replacing, runners: layout.runners)
         let staging = layout.runners.appending(path: ".crossover-\(replacing).new")
-        let lock = try DeploymentContent.acquireInstallationLock(in: layout.root, steamFolder: nil)
+        let lock = try layout.acquireInstallationLock()
         var held = true
         defer { if held { lock.release() } }
         try fm.moveItem(at: target, to: staging)
         let status = SystemStatus()
 
         await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library],
-            acquireInstallationLock: {
-                try DeploymentContent.acquireInstallationLock(in: layout.root, steamFolder: nil)
-            })
+            acquireInstallationLock: layout.acquireInstallationLock)
 
         #expect(status.templateCleanupFailure == nil)
         #expect(status.runnerSizes[other] != nil)
@@ -352,9 +362,7 @@ struct TemplateCleanupTests {
         lock.release()
         held = false
         await status.refreshRunnerStorage(runners: layout.runners, libraries: [layout.library],
-            acquireInstallationLock: {
-                try DeploymentContent.acquireInstallationLock(in: layout.root, steamFolder: nil)
-            })
+            acquireInstallationLock: layout.acquireInstallationLock)
 
         #expect(status.templateCleanupFailure == nil)
         #expect(!fm.fileExists(atPath: layout.template.path))
