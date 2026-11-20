@@ -813,8 +813,8 @@ app: app-payload $(ICON_CAR)
 	fi
 	@echo "==> Payload complete in the bundle"
 	@mkdir -p "$(APP_BUNDLE)/Contents/Resources/Licenses"
-	cp LICENSE LICENSE.fonts LICENSE.lsteamclient LICENSE.steam-shim "$(APP_BUNDLE)/Contents/Resources/Licenses/"
-	cp NOTICE "$(APP_BUNDLE)/Contents/Resources/Licenses/NOTICE.txt"
+	cp licenses/LICENSE licenses/LICENSE.fonts licenses/LICENSE.lsteamclient licenses/LICENSE.steam-shim "$(APP_BUNDLE)/Contents/Resources/Licenses/"
+	cp licenses/NOTICE "$(APP_BUNDLE)/Contents/Resources/Licenses/NOTICE.txt"
 	cp vendor/dobby/LICENSE "$(APP_BUNDLE)/Contents/Resources/Licenses/Dobby.txt"
 	cp app/.build/checkouts/Sparkle/LICENSE "$(APP_BUNDLE)/Contents/Resources/Licenses/Sparkle.txt"
 	cp fonts/liberation-fonts/LICENSE "$(APP_BUNDLE)/Contents/Resources/Licenses/Liberation.txt"

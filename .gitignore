@@ -20,7 +20,9 @@ cmake-build-*/
 xcuserdata/
 *.xcuserstate
 DerivedData/
-LOCAL_PATCHES.md
+/LOCAL_GAME_FILE_SAFETY.md
+/LOCAL_PATCHES.md
+/LOCAL_SETUP.md
 local-mods/
 
 app/Sources/GameHarborApp/Resources/payload/

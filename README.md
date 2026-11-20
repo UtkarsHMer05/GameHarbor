@@ -55,4 +55,6 @@ bash SteamPlayMac/checks/run.sh
 
 The companion build produces `SteamPlayMac/out/SteamPlayMac.dylib`, the config app in `SteamPlayMac/SteamPlayMac-app/.build/`, and the launcher in `SteamPlayMac/launcher/build/`.
 
+Source and dependency notices are in [licenses/](licenses/).
+
 Credit to [@NotProtonNot](https://github.com/NotProtonNot) and contributors for the original NotProton project.
