@@ -42,7 +42,7 @@ struct GameHarborApp: App {
             if updater.isConfigured {
                 Button("Check for Updates…") { updater.check() }
             }
-            if let notice = Bundle.main.url(forResource: "NOTICE", withExtension: "txt", subdirectory: "Licenses") {
+            if let notice = Bundle.main.url(forResource: "THIRD-PARTY", withExtension: "txt", subdirectory: "Licenses") {
                 Button("Licenses and Credits…") { NSWorkspace.shared.open(notice) }
             }
         }

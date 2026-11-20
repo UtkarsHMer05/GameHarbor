@@ -39,7 +39,7 @@ jobs:
           DMG="SteamPlayMac-$VERSION.dmg"
           mkdir -p out/release/Licenses
           ditto "$APP" 'out/release/SteamPlayMac Config.app'
-          cp ../licenses/NOTICE ../licenses/LICENSE out/release/Licenses/
+          cp ../licenses/THIRD-PARTY.txt ../licenses/LICENSE out/release/Licenses/
           cp vendor/dobby/LICENSE out/release/Licenses/Dobby-LICENSE
           cp SteamPlayMac-app/.build/checkouts/Sparkle/LICENSE out/release/Licenses/Sparkle-LICENSE
           hdiutil create -volname "SteamPlayMac" -srcfolder out/release -ov -format UDZO "$DMG"

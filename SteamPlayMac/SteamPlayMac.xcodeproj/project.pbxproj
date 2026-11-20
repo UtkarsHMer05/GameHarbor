@@ -35,6 +35,7 @@
 		DDDFEB13CFE7D84D5538AE7A /* MacCrab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 278D608A4C94651FCD5CC9D3 /* MacCrab.swift */; };
 		E329E1FDCD5BA91A8A9D9B66 /* LuaManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4C5C7602D5BB11A2FDECF9 /* LuaManifest.swift */; };
 		E72923A58804C575A1EE3A08 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8D0BD68B24BA51E2A42FDE9 /* main.swift */; };
+		21E519C2D74A4B2FB2EC27BA /* ManifestFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB397EA95E14E81BE2283BB /* ManifestFetcher.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -145,6 +146,7 @@
 		FB5E1ECB5A1321179A6C2267 /* log.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = log.c; sourceTree = "<group>"; };
 		FB775E8332709FBB761A68AB /* ConfigViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigViewController.swift; sourceTree = "<group>"; };
 		FD2A14FC07A01E3E8371C2AF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		AAB397EA95E14E81BE2283BB /* ManifestFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManifestFetcher.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -348,6 +350,7 @@
 				F725E77B4613A570D32F59FF /* SteamPlayMacConfig.swift */,
 				D8D0BD68B24BA51E2A42FDE9 /* main.swift */,
 				4C3B1CF8DCCC7E041C9A699D /* MainViewController.swift */,
+				AAB397EA95E14E81BE2283BB /* ManifestFetcher.swift */,
 				51154C606410C8B19556C18D /* PackageFetcher.swift */,
 				CF10CE7907305E518E936622 /* PackageServer.swift */,
 				F69E282893128DA01594B4FF /* Paths.swift */,
@@ -549,6 +552,7 @@
 				DDDFEB13CFE7D84D5538AE7A /* MacCrab.swift in Sources */,
 				90A4D190A38226018B3C7EC6 /* SteamPlayMacConfig.swift in Sources */,
 				0DE826FCF7922BF50EBFAE0C /* MainViewController.swift in Sources */,
+				21E519C2D74A4B2FB2EC27BA /* ManifestFetcher.swift in Sources */,
 				4F77223A6B45AB29AD76B586 /* PackageFetcher.swift in Sources */,
 				0DF2544A2A562E04F001C975 /* PackageServer.swift in Sources */,
 				39477E154A03C89EF9EA5042 /* Paths.swift in Sources */,
