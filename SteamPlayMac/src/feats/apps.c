@@ -9,7 +9,7 @@ static int g_applist_requested = 0;
 void sx_apps_force_ready(void) {
     if (!g_applist_requested) {
         g_applist_requested = 1;
-        SX_LOG("ownership spoofing force-enabled (late injection)");
+        SX_LOG("ownership force-enabled");
     }
 }
 
@@ -91,7 +91,7 @@ uint32_t sx_apps_inject_subscribed(uint32_t *appids, uint32_t max_apps, uint32_t
 
     if (!g_applist_requested) {
         g_applist_requested = 1;
-        SX_LOG("GetSubscribedApps: applist populated, ownership spoofing enabled");
+        SX_LOG("GetSubscribedApps: applist populated, ownership enabled");
     }
 
     return count;
