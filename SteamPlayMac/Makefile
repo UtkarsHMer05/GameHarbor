@@ -178,7 +178,7 @@ dmg: all
 	ditto "SteamPlayMac-app/.build/SteamPlayMac Config.app" "$$stage/SteamPlayMac Config.app"; \
 	ln -s /Applications "$$stage/Applications"; \
 	mkdir "$$stage/Licenses"; \
-	cp ../licenses/THIRD-PARTY.txt ../licenses/LICENSE "$$stage/Licenses/"; \
+	cp ../licenses/LICENSE "$$stage/Licenses/"; \
 	cp vendor/dobby/LICENSE "$$stage/Licenses/Dobby-LICENSE"; \
 	cp SteamPlayMac-app/.build/checkouts/Sparkle/LICENSE "$$stage/Licenses/Sparkle-LICENSE"; \
 	hdiutil create -ov -format UDZO -volname SteamPlayMac -srcfolder "$$stage" "$(OUT_DIR)/SteamPlayMac.dmg"
