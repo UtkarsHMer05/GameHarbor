@@ -376,6 +376,7 @@ rc=0
 (
   trap - EXIT
   loader_root="$T/fallback"
+  # shellcheck disable=SC2329 # called by the extracted launcher code
   install_bundle() { return 1; }
   eval "$fallback_calls"
 ) || rc=$?
@@ -384,6 +385,7 @@ is "failed fallback preserves runner" yes "$([ -f "$T/fallback/runner/keep" ] &&
 (
   trap - EXIT
   loader_root="$T/fallback"
+  # shellcheck disable=SC2329 # called by the extracted launcher code
   install_bundle() { return 0; }
   eval "$fallback_calls"
 )

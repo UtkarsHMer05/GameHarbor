@@ -7438,6 +7438,34 @@
         }
       }
     },
+    "NotProton is removed while other Steam integrations are kept. Windows games and Steam Play prefixes are not removed." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotProton wird entfernt. Andere Steam-Integrationen, Windows-Spiele und Steam Play-Präfixe bleiben erhalten."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotProton est supprimé. Les autres intégrations Steam, les jeux Windows et les préfixes Steam Play sont conservés."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotProton viene rimosso. Le altre integrazioni di Steam, i giochi Windows e i prefissi di Steam Play vengono mantenuti."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此操作会移除 NotProton，并保留其他 Steam 集成、Windows 游戏和 Steam Play 游戏容器。"
+          }
+        }
+      }
+    },
     "NotProton needs the App Management permission." : {
       "localizations" : {
         "de" : {
