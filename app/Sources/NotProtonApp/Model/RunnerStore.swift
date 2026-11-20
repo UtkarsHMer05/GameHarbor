@@ -108,7 +108,7 @@ enum RunnerStore {
 enum CompatToolList {
 
     static func contents(_ tools: [InstalledTool]) -> String {
-        tools.map { "\($0.name)\t\($0.build)\t\($0.tool.flavor.rawValue)\t\($0.display)\n" }.joined()
+        tools.map { "\($0.name)\t\($0.build)\t\($0.tool.flavor.rawValue)\tGameHarbor — \($0.display)\n" }.joined()
     }
 
     static func installed(

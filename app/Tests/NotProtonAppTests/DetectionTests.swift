@@ -178,7 +178,7 @@ struct CompatToolOrderTests {
     func contents() throws {
         let tools = SupportedRunners.tools(for: [try build("26.3.0.39832")])
         #expect(CompatToolList.contents(tools)
-            == "notproton-26.3\t26.3.0.39832\trosetta\tCrossOver 26.3\n")
+            == "notproton-26.3\t26.3.0.39832\trosetta\tGameHarbor — CrossOver 26.3\n")
     }
 }
 
