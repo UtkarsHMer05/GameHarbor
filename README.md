@@ -1,6 +1,13 @@
 # GameHarbor
 
-GameHarbor is my personal macOS project for managing Steam compatibility tools and running Windows Steam games through CrossOver on Apple silicon. The desktop app manages the Steam integration, runners, and per-game Wine prefixes. SteamPlayMac is a secret app(which I sometimes needed too), when you download it, you will know🤫.
+GameHarbor is my personal macOS project(though almost a fork right now with just a few changes) for managing Steam compatibility tools and running Windows Steam games through CrossOver on Apple silicon. The desktop app manages the Steam integration, runners, and per-game Wine prefixes. SteamPlayMac is a secret app(which I sometimes needed too), when you download it, you will know🤫.
+
+# NOTE:
+1. See this is a project I am gonna implement/improve as a Hobby and a project as I also need to play games..I don't know the architecture of this whole project very well. I am learning it though.(gonna use ChatGPT). There can be issues like I don't know how to proceed furthur because of my less experience in doing it.
+2. See here, the secret dmg file - SteamPlayMac ..(I will keep it updated, unlike the guy stopped because my games depend on it too), if you guys have any suggestions like what can we change etc. in this file, do open the issues tab and try to explain in eveything in detail 
+3. Similar thing, like I am planning to add support for other wine tools instead of crossover(I don't have much experiece etc like what can we add) so you are free to open Pr/issues tab explainig with links etc. if possible
+4. Well don't expect me to fix the bugs or add anything new daily..I am also kinda busy with stuff..I will add/fix it eventually but not like every day like @NotProtonNot..I am not good as him in this domain (well you can say it's my first time 😂)
+
 
 ## Install
 
