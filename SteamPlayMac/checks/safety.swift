@@ -18,6 +18,56 @@ struct SafetyChecks {
         let migrated = try String(contentsOf: config.appendingPathComponent("config.yaml"), encoding: .utf8)
         precondition(migrated == "original" && Paths.configDirectory(in: root) == config)
 
+        let settings = root.appendingPathComponent("settings/config.yaml")
+        let settingsBackups = root.appendingPathComponent("settings-backups")
+        let store = ConfigStore(configFile: settings, backupDir: settingsBackups)
+        try store.setHideWhatsNew(true)
+        precondition(store.config.packageIds == [Paths.defaultInjectionPackage])
+        let originalSettings = try Data(contentsOf: settings)
+        try Data().write(to: settingsBackups)
+        do {
+            try store.setHideWhatsNew(false)
+            preconditionFailure("config was written without a backup")
+        } catch {
+            let onDisk = try Data(contentsOf: settings)
+            precondition(store.config.hideWhatsNew && onDisk == originalSettings)
+        }
+        try fm.removeItem(at: settingsBackups)
+        try store.setHideWhatsNew(false)
+        let backupName = try fm.contentsOfDirectory(atPath: settingsBackups.path).first!
+        let backedUp = try Data(contentsOf: settingsBackups.appendingPathComponent(backupName))
+        precondition(!store.config.hideWhatsNew && backedUp == originalSettings)
+        let unreadableSettings = Data([0xff, 0xff])
+        try unreadableSettings.write(to: settings)
+        do {
+            try store.setHideWhatsNew(true)
+            preconditionFailure("unreadable config was overwritten")
+        } catch {
+            let onDisk = try Data(contentsOf: settings)
+            precondition(!store.config.hideWhatsNew && onDisk == unreadableSettings)
+        }
+
+        func extractionNames() throws -> Set<String> {
+            Set(try fm.contentsOfDirectory(atPath: fm.temporaryDirectory.path)
+                .filter { $0.hasPrefix("steamplaymac-import-") })
+        }
+        let initialExtractions = try extractionNames()
+        let invalidZip = root.appendingPathComponent("broken.zip")
+        try Data("invalid archive".utf8).write(to: invalidZip)
+        do {
+            _ = try ZipImporter.buildPlans(from: invalidZip)
+            preconditionFailure("invalid archive was accepted")
+        } catch is ImportError {}
+        let invalidFolder = root.appendingPathComponent("broken-folder")
+        try fm.createDirectory(at: invalidFolder, withIntermediateDirectories: false)
+        try Data([0xff, 0xff]).write(to: invalidFolder.appendingPathComponent("script.lua"))
+        do {
+            _ = try ZipImporter.buildPlans(fromFolder: invalidFolder)
+            preconditionFailure("invalid script was accepted")
+        } catch is ImportError {}
+        let remainingExtractions = try extractionNames()
+        precondition(remainingExtractions == initialExtractions)
+
         let package = root.appendingPathComponent("Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/package")
         try fm.createDirectory(at: package, withIntermediateDirectories: true)
         func put(_ name: String, _ value: String) throws {

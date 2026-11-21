@@ -50,6 +50,7 @@ final class ImportViewController: NSViewController {
     private let art = StoreArtLoader()
 
     let reviewUndoManager = UndoManager()
+    private var batchDirectories = Set<URL>()
 
     private static let minRowHeight: CGFloat = 48
     private static let maxRowHeight: CGFloat = 160
@@ -294,7 +295,7 @@ final class ImportViewController: NSViewController {
         }
         guard !sources.isEmpty else { return }
 
-        if items.isEmpty { ZipImporter.sweepStaleExtractDirs() }
+        if batchDirectories.isEmpty { ZipImporter.sweepStaleExtractDirs() }
 
         let noun = sources.count == 1 ? "file" : "\(sources.count) files"
         setBusy(true, status: "Reading \(noun)…")
@@ -323,7 +324,7 @@ final class ImportViewController: NSViewController {
             }
             self.setBusy(false, status: nil)
             if self.batchGeneration != generation {
-                for plan in loaded { ZipImporter.cleanup(plan.extractDir) }
+                for dir in Set(loaded.map(\.extractDir)) { ZipImporter.cleanup(dir) }
                 return
             }
             self.appendLoadedPlans(loaded, failures: failures)
@@ -332,12 +333,16 @@ final class ImportViewController: NSViewController {
 
     private func appendLoadedPlans(_ plans: [ImportPlan], failures: [String]) {
         var existingApps = Set(items.compactMap(\.mainAppID))
+        var usedDirectories = Set<URL>()
         for plan in plans {
             if let app = plan.mainAppID, !existingApps.insert(app).inserted {
                 continue
             }
             items.append(plan)
+            usedDirectories.insert(plan.extractDir)
         }
+        for dir in Set(plans.map(\.extractDir)).subtracting(usedDirectories) { ZipImporter.cleanup(dir) }
+        batchDirectories.formUnion(usedDirectories)
         reviewTable.reloadData()
         repushCachedArt()
         refreshActionBar()
@@ -512,16 +517,21 @@ final class ImportViewController: NSViewController {
     }
 
     override func cancelOperation(_ sender: Any?) {
-        guard !isBusy, !items.isEmpty else { return }
-        batchGeneration += 1
-        for item in items { ZipImporter.cleanup(item.extractDir) }
-        items.removeAll()
-        reviewUndoManager.removeAllActions()
+        guard !isBusy, !batchDirectories.isEmpty else { return }
+        clearBatch()
         reviewTable.reloadData()
         refreshActionBar()
         setState(.empty)
         setStatus("Cleared.", tint: .secondaryLabelColor)
         announce("Cleared")
+    }
+
+    private func clearBatch() {
+        batchGeneration += 1
+        reviewUndoManager.removeAllActions()
+        items.removeAll()
+        for dir in batchDirectories { ZipImporter.cleanup(dir) }
+        batchDirectories.removeAll()
     }
 
     @objc private func applyAction() {
@@ -561,10 +571,7 @@ final class ImportViewController: NSViewController {
                     self.onConfigChanged()
 
                     let g = plans.count
-                    self.batchGeneration += 1
-                    for item in self.items { ZipImporter.cleanup(item.extractDir) }
-                    self.items.removeAll()
-                    self.reviewUndoManager.removeAllActions()
+                    self.clearBatch()
                     self.reviewTable.reloadData()
                     self.refreshActionBar()
                     self.showSuccess(games: g, dlc: dlcTotal, checkingManifests: !manifestRefs.isEmpty)

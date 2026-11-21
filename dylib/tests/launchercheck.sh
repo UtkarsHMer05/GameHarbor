@@ -384,7 +384,7 @@ kill -TERM "$sp"
 rc=0; wait "$sp" || rc=$?
 is "exit game ends the session" 143 "$rc"
 is "exit game does not wait out the shim" yes "$([ $(($(date +%s) - start)) -lt 5 ] && echo yes || echo no)"
-is "exit game tears the prefix down" yes "$(grep -q kill "$T/session.ev" && echo yes || echo no)"
+is "exit game tears the prefix down once" kill "$(cat "$T/session.ev")"
 is "the prefix lock is released after the session" free "$(/usr/bin/lockf -s -t 0 "$T/session.lock" true 2>/dev/null && echo free || echo busy)"
 is "resume record is removed on exit" no "$([ -e "$T/focus-support/focus/$sp" ] && echo yes || echo no)"
 

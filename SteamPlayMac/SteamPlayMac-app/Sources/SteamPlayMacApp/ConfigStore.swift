@@ -1,14 +1,11 @@
 // Config store
 import Foundation
-import CryptoKit
 
 final class ConfigStore {
     private(set) var config = SteamPlayMacConfig()
 
     private let configFile: URL
     private let backupDir: URL
-
-    private var lastKnownHash: String?
 
     init(configFile: URL = Paths.configFile, backupDir: URL = Paths.configBackupDir) {
         self.configFile = configFile
@@ -18,22 +15,22 @@ final class ConfigStore {
     static let headerText: String? = nil
 
     private static let backupsToKeep = 10
+    private static let defaults = SteamPlayMacConfig(packageIds: [Paths.defaultInjectionPackage])
 
     func load() {
-        if let text = try? String(contentsOf: configFile, encoding: .utf8) {
-            config = SteamPlayMacConfig.parse(text)
-            lastKnownHash = Self.hash(text)
-        } else {
-            config = SteamPlayMacConfig()
-            config.packageIds = [Paths.defaultInjectionPackage]
-            lastKnownHash = nil
-        }
+        config = (try? readConfig()) ?? Self.defaults
     }
 
     func mutate(_ change: (inout SteamPlayMacConfig) -> Void) throws {
-        reconcileWithDiskIfChanged()
-        change(&config)
-        try writeAtomically()
+        let onDisk = try readConfig()
+        var next = onDisk ?? Self.defaults
+        change(&next)
+        try FileManager.default.createDirectory(
+            at: configFile.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if onDisk != nil { try backupCurrentFile() }
+        try next.serialize(header: Self.headerText).write(to: configFile, atomically: true, encoding: .utf8)
+        config = next
+        pruneBackups(in: backupDir)
     }
 
     func removeApps(_ ids: [Int]) throws {
@@ -46,27 +43,17 @@ final class ConfigStore {
 
     // MARK: - conflict + backup internals
 
-    private func reconcileWithDiskIfChanged() {
-        guard let text = try? String(contentsOf: configFile, encoding: .utf8) else { return }
-        let onDisk = Self.hash(text)
-        if onDisk == lastKnownHash { return }
-        config = SteamPlayMacConfig.parse(text)
-        lastKnownHash = onDisk
+    private func readConfig() throws -> SteamPlayMacConfig? {
+        do {
+            return SteamPlayMacConfig.parse(try String(contentsOf: configFile, encoding: .utf8))
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return nil
+        }
     }
 
-    private func writeAtomically() throws {
-        try FileManager.default.createDirectory(
-            at: configFile.deletingLastPathComponent(), withIntermediateDirectories: true)
-        backupCurrentFile()
-        let text = config.serialize(header: Self.headerText)
-        try text.write(to: configFile, atomically: true, encoding: .utf8)
-        lastKnownHash = Self.hash(text)
-    }
-
-    private func backupCurrentFile() {
+    private func backupCurrentFile() throws {
         let fm = FileManager.default
-        guard fm.fileExists(atPath: configFile.path) else { return }
-        try? fm.createDirectory(at: backupDir, withIntermediateDirectories: true)
+        try fm.createDirectory(at: backupDir, withIntermediateDirectories: true)
         let ts = Int(Date().timeIntervalSince1970)
         var dest = backupDir.appendingPathComponent("config.yaml.\(ts).bak")
         var n = 1
@@ -74,8 +61,7 @@ final class ConfigStore {
             dest = backupDir.appendingPathComponent("config.yaml.\(ts)-\(n).bak")
             n += 1
         }
-        try? fm.copyItem(at: configFile, to: dest)
-        pruneBackups(in: backupDir)
+        try fm.copyItem(at: configFile, to: dest)
     }
 
     private func pruneBackups(in dir: URL) {
@@ -83,7 +69,9 @@ final class ConfigStore {
         guard let entries = try? fm.contentsOfDirectory(
             at: dir, includingPropertiesForKeys: [.contentModificationDateKey],
             options: [.skipsHiddenFiles]) else { return }
-        let backups = entries.filter { $0.lastPathComponent.hasSuffix(".bak") }
+        let backups = entries.filter {
+            $0.lastPathComponent.hasPrefix("config.yaml.") && $0.pathExtension == "bak"
+        }
         guard backups.count > Self.backupsToKeep else { return }
         let sorted = backups.sorted {
             let a = fileModified($0) ?? .distantPast
@@ -96,9 +84,5 @@ final class ConfigStore {
 
     private func fileModified(_ url: URL) -> Date? {
         (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-    }
-
-    private static func hash(_ text: String) -> String {
-        SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 }

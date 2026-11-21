@@ -40,41 +40,34 @@ enum ZipImporter {
     private static let extractPrefix = "steamplaymac-import-"
 
     static func buildPlans(from zip: URL) throws -> [ImportPlan] {
-        let scoped = zip.startAccessingSecurityScopedResource()
-        defer { if scoped { zip.stopAccessingSecurityScopedResource() } }
-        let tmp = FileManager.default.temporaryDirectory
-            .appendingPathComponent("\(extractPrefix)\(UUID().uuidString)", isDirectory: true)
-        try Paths.ensureDir(tmp)
-        try unzip(zip, into: tmp)
-
-        let plans = try plansFromDirectory(tmp, source: zip)
-        if plans.isEmpty {
-            cleanup(tmp)
-            throw ImportError.noLua
-        }
-        return plans
+        try stagePlans(from: zip) { try unzip(zip, into: $0) }
     }
 
     static func buildPlans(fromFolder folder: URL) throws -> [ImportPlan] {
-        let scoped = folder.startAccessingSecurityScopedResource()
-        defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
+        try stagePlans(from: folder) { tmp in
+            let fm = FileManager.default
+            let items = try fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
+            for item in items {
+                try fm.copyItem(at: item, to: tmp.appendingPathComponent(item.lastPathComponent))
+            }
+        }
+    }
+
+    private static func stagePlans(from source: URL, stage: (URL) throws -> Void) throws -> [ImportPlan] {
+        let scoped = source.startAccessingSecurityScopedResource()
+        defer { if scoped { source.stopAccessingSecurityScopedResource() } }
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("\(extractPrefix)\(UUID().uuidString)", isDirectory: true)
-        try Paths.ensureDir(tmp)
-
-        // Copy folder contents into a temp dir so cleanup stays uniform.
-        let fm = FileManager.default
-        let items = try fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
-        for item in items {
-            try fm.copyItem(at: item, to: tmp.appendingPathComponent(item.lastPathComponent))
-        }
-
-        let plans = try plansFromDirectory(tmp, source: folder)
-        if plans.isEmpty {
+        do {
+            try Paths.ensureDir(tmp)
+            try stage(tmp)
+            let plans = try plansFromDirectory(tmp, source: source)
+            guard !plans.isEmpty else { throw ImportError.noLua }
+            return plans
+        } catch {
             cleanup(tmp)
-            throw ImportError.noLua
+            throw error
         }
-        return plans
     }
 
     static func buildPlan(fromLua lua: URL) throws -> ImportPlan {

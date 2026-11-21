@@ -186,6 +186,30 @@ def import_game(appid, source, steamapps=STEAMAPPS, busy=wine_running,
     return {"game": info["name"], "imported_to": str(target)}
 
 
+def read_snapshot(snapshot, appid):
+    if snapshot.is_symlink():
+        raise ValueError("The saved game identity is invalid")
+    metadata = json.loads((snapshot / "metadata.json").read_text())
+    folder = metadata.get("folder") if isinstance(metadata, dict) else None
+    files = snapshot / "files"
+    if (not isinstance(folder, str) or not folder or folder in (".", "..")
+            or "/" in folder or "\\" in folder or metadata.get("appid") != appid
+            or files.is_symlink()):
+        raise ValueError("The saved game identity is invalid")
+    if not files.is_dir():
+        raise ValueError("The saved game files changed; no restore was attempted")
+    fingerprint, _, _, snapshot_identity = tree_info(files)
+    if (fingerprint != metadata.get("fingerprint")
+            or metadata.get("snapshot_identity", snapshot_identity) != snapshot_identity):
+        raise ValueError("The saved game files changed; no restore was attempted")
+    saved_manifest = (snapshot / "appmanifest.acf").read_bytes()
+    text = saved_manifest.decode("utf-8", errors="strict")
+    if (field(text, "appid") != appid or field(text, "installdir") != folder
+            or field(text, "StateFlags") != "4"):
+        raise ValueError("The saved Steam manifest does not match the game")
+    return metadata, saved_manifest
+
+
 def backup_game(info, manifest, root, busy=wine_running):
     if busy():
         return "skipped: a Wine game is running"
@@ -198,17 +222,17 @@ def backup_game(info, manifest, root, busy=wine_running):
     current = game_root / "current"
     previous = game_root / "previous"
     try:
-        old = json.loads((current / "metadata.json").read_text())
+        old, saved_manifest = read_snapshot(current, info["appid"])
     except (OSError, ValueError):
         old = {}
-    if (old.get("fingerprint") == fingerprint and old.get("folder") == info["folder"]
-            and old.get("source_identity") == source_identity):
+    if (old and old.get("fingerprint") == fingerprint and old.get("folder") == info["folder"]
+            and old.get("source_identity") == source_identity and saved_manifest == info["manifest"]):
         return "current"
     if busy():
         return "skipped: a Wine game is running"
     stage = Path(tempfile.mkdtemp(prefix=".building-", dir=game_root))
-    retired = None
-    moved_current = False
+    retired = game_root / (".retired-" + stage.name.removeprefix(".building-"))
+    parked_current = None
     try:
         shutil.copytree(source, stage / "files", symlinks=True, copy_function=clone_file)
         copied_fingerprint, _, _, snapshot_identity = tree_info(stage / "files")
@@ -222,23 +246,25 @@ def backup_game(info, manifest, root, busy=wine_running):
                          "snapshot_identity": snapshot_identity,
                          "created": time.strftime("%Y-%m-%d %H:%M:%S")})
         (stage / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
-        if previous.exists():
-            retired = game_root / (".retired-" + stage.name.removeprefix(".building-"))
+        if old and previous.exists():
             previous.rename(retired)
-        if current.exists():
-            current.rename(previous)
-            moved_current = True
+        if current.exists() or current.is_symlink():
+            destination = previous if old else retired
+            current.rename(destination)
+            parked_current = destination
         stage.rename(current)
     except Exception:
-        if moved_current and not current.exists() and previous.exists():
-            previous.rename(current)
-        if retired and retired.exists() and not previous.exists():
+        if parked_current is not None:
+            parked_current.rename(current)
+        if old and retired.exists():
             retired.rename(previous)
         raise
     finally:
         if stage.exists():
             shutil.rmtree(stage)
-    if retired:
+    if retired.is_symlink() or retired.is_file():
+        retired.unlink()
+    elif retired.exists():
         shutil.rmtree(retired)
     return "saved"
 
@@ -294,22 +320,8 @@ def restore_locked(appid, steamapps, root, busy, steam_open, ready):
     snapshot = game_root / "current"
     if not snapshot.exists():
         snapshot = game_root / "previous"
-    metadata = json.loads((snapshot / "metadata.json").read_text())
-    folder = metadata.get("folder", "")
-    if (metadata.get("appid") != appid or not folder or folder in (".", "..")
-            or "/" in folder or "\\" in folder or (snapshot / "files").is_symlink()):
-        raise ValueError("The saved game identity is invalid")
-    if not (snapshot / "files").is_dir():
-        raise ValueError("The saved game files changed; no restore was attempted")
-    fingerprint, _, _, snapshot_identity = tree_info(snapshot / "files")
-    if (fingerprint != metadata.get("fingerprint")
-            or metadata.get("snapshot_identity", snapshot_identity) != snapshot_identity):
-        raise ValueError("The saved game files changed; no restore was attempted")
-    saved_manifest = (snapshot / "appmanifest.acf").read_bytes()
-    text = saved_manifest.decode("utf-8", errors="strict")
-    if (field(text, "appid") != appid or field(text, "installdir") != folder
-            or field(text, "StateFlags") != "4"):
-        raise ValueError("The saved Steam manifest does not match the game")
+    metadata, saved_manifest = read_snapshot(snapshot, appid)
+    folder = metadata["folder"]
     common = steamapps / "common"
     target = common / folder
     manifest = steamapps / ("appmanifest_" + appid + ".acf")

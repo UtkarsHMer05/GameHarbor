@@ -136,7 +136,10 @@ extension PrefixTools {
         defer { claim.release() }
 
         let fm = FileManager.default
-        guard fm.fileExists(atPath: prefix.pfx.path(percentEncoded: false)) else {
+        let source = prefix.pfx.resolvingSymlinksInPath()
+        var isDirectory: ObjCBool = false
+        guard fm.fileExists(atPath: source.path(percentEncoded: false), isDirectory: &isDirectory),
+              isDirectory.boolValue else {
             throw StepFailure(
                 step: String(localized: "Back up prefix"),
                 detail: String(localized: "\(prefix.title) does not appear to have a prefix to back up.")
@@ -145,7 +148,7 @@ extension PrefixTools {
 
         let slot = backupSlot(in: prefix.root, at: now)
         do {
-            try fm.copyItem(at: prefix.pfx, to: slot)
+            try fm.copyItem(at: source, to: slot)
         } catch {
             try? fm.removeItem(at: slot)
             throw error

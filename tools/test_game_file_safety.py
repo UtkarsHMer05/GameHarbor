@@ -107,6 +107,27 @@ class GameSafetyTests(unittest.TestCase):
         os.utime(game, ns=(original.st_atime_ns, original.st_mtime_ns))
         self.assertEqual(self.scan()["games"]["123"]["result"], "saved")
 
+    def test_scan_repairs_a_damaged_snapshot_and_keeps_previous(self):
+        self.scan()
+        (self.game / "game.exe").write_bytes(b"updated game")
+        self.scan()
+        snapshots = self.backups / "games/123"
+        saved = snapshots / "current/files/game.exe"
+        saved.unlink()
+
+        self.assertEqual(self.scan()["games"]["123"]["result"], "saved")
+        self.assertEqual(saved.read_bytes(), b"updated game")
+        self.assertEqual((snapshots / "previous/files/game.exe").read_bytes(), b"working game")
+        self.assertEqual(self.scan()["games"]["123"]["result"], "current")
+
+    def test_scan_refreshes_a_changed_manifest_with_unchanged_files(self):
+        self.scan()
+        self.manifest.write_text(self.manifest.read_text().replace('"buildid" "1"', '"buildid" "2"'))
+
+        self.assertEqual(self.scan()["games"]["123"]["result"], "saved")
+        saved = self.backups / "games/123/current/appmanifest.acf"
+        self.assertEqual(saved.read_bytes(), self.manifest.read_bytes())
+
     def test_running_wine_defers_and_traversal_is_rejected(self):
         result = safety.run(self.steamapps, self.backups, busy=lambda: True, min_free=0)
         self.assertIn("deferred", result["status"])

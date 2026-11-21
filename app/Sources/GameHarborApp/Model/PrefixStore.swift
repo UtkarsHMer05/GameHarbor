@@ -396,7 +396,7 @@ enum PrefixStore {
     static func serverDirectory(of prefix: WinePrefix, root: URL = serverRoot) -> URL? {
         guard
             let attributes = try? FileManager.default.attributesOfItem(
-                atPath: prefix.pfx.path(percentEncoded: false)
+                atPath: prefix.pfx.resolvingSymlinksInPath().path(percentEncoded: false)
             ),
             let device = attributes[.systemNumber] as? Int,
             let inode = attributes[.systemFileNumber] as? Int

@@ -128,8 +128,9 @@ $(ANCHOR_PROBE_BIN): $(ANCHOR_PROBE_SRC) src/resolver/anchor.c src/core/macho.c 
 	$(CC) -std=c17 -Wall -Wextra -Isrc -o $@ $(ANCHOR_PROBE_SRC) src/util/log.c src/util/file.c
 	@echo "==> Built probe: $@"
 
-test:
-	@if [ ! -d SteamPlayMac-app/Tests ]; then echo "==> No local tests, skipping."; exit 0; fi; \
+test: all
+	bash checks/run.sh
+	@set -e; if [ ! -d SteamPlayMac-app/Tests ]; then exit 0; fi; \
 	 $(MAKE) $(PROBE_BIN) $(STATS_PROBE_BIN) $(AOB_PROBE_BIN) $(ANCHOR_PROBE_BIN); \
 	 echo "==> Running C stats-resolver probe..."; \
 	 $(STATS_PROBE_BIN); \

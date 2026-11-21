@@ -2242,7 +2242,7 @@ abandon_seed() {
 
 prefix_server_dir() {
   [ -n "${1:-$WINEPREFIX}" ] || return 1
-  ids=$(stat -f '%d-%i' "${1:-$WINEPREFIX}" 2>/dev/null) || return 1
+  ids=$(stat -L -f '%d-%i' "${1:-$WINEPREFIX}" 2>/dev/null) || return 1
   [ -n "$ids" ] || return 1
   printf '/tmp/.wine-%s/server-%s' "$(id -u)" \
     "$(printf '%s' "$ids" | awk -F- '{printf "%x-%x", $1, $2}')"
@@ -3173,7 +3173,7 @@ CHILD_LOADER
   fi
   contents="$game_app/Contents"
   if cmp -s "$runner_plist" "$contents/Info.plist" &&
-     [ "$(bundle_listing "$loader_res")" = "$(bundle_listing "$contents/Resources")" ]; then
+     bundle_matches "$loader_res" "$contents/Resources"; then
     echo "game's wine.app already up to date" >> "$log" 2>&1 || true
   else
     rm -rf "$contents/Resources" || exit 1
@@ -3215,6 +3215,7 @@ kill_wine_prefix() {
 # termination signal to this run script, this handles it
 # shellcheck disable=SC2329 # the trap below invokes this
 terminate() {
+  [ "${np_terminated:-0}" = 0 ] || return 0
   np_terminated=1
   echo "=== termination signal received, killing wine prefix ===" >> "$log" 2>&1 || true
   kill_wine_prefix
@@ -3553,9 +3554,14 @@ fi
 /usr/bin/caffeinate -d -i -w "$open_pid" >> "$log" 2>&1 8>&- 9>&- &
 status=0
 wait "$open_pid" || status=$?
+trap '' TERM INT HUP
 [ -z "$focus_record" ] || rm -f "$focus_record" "$focus_record.new" || true
-echo "=== game exited status=$status, killing wine prefix ===" >> "$log" 2>&1 || true
-kill_wine_prefix
+if [ "${np_terminated:-0}" = 1 ]; then
+  status=143
+else
+  echo "=== game exited status=$status, killing wine prefix ===" >> "$log" 2>&1 || true
+  kill_wine_prefix
+fi
 [ -z "$STEAM_COMPAT_DATA_PATH" ] \
   || record_session "$loader_root/notproton-wine.log" "$(($(date +%s) - np_started))" "$np_terminated"
 echo "=== wine prefix killed, session ending ===" >> "$log" 2>&1 || true

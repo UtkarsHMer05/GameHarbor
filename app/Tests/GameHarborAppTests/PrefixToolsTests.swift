@@ -1255,6 +1255,28 @@ struct PrefixToolsTests {
         #expect(PrefixStore.backups(of: prefix).isEmpty)
     }
 
+    @Test("Backing up a relocated prefix copies its files and uses the target's wineserver")
+    func backsUpRelocatedPrefix() throws {
+        let fm = FileManager.default
+        let dir = fm.temporaryDirectory.appending(path: "np-linked-\(UUID().uuidString)")
+        defer { try? fm.removeItem(at: dir) }
+        let library = SteamLibrary(root: dir)
+        let pfx = library.compatdata.appending(path: "1574480/pfx")
+        let target = dir.appending(path: "relocated")
+        try fm.createDirectory(at: pfx, withIntermediateDirectories: true)
+        let prefix = try #require(PrefixStore.all(libraries: [library]).first)
+        let server = try #require(PrefixStore.serverDirectory(of: prefix))
+        try fm.moveItem(at: pfx, to: target)
+        try fm.createSymbolicLink(at: pfx, withDestinationURL: target)
+        let registry = target.appending(path: "user.reg")
+        try Data("before".utf8).write(to: registry)
+
+        #expect(PrefixStore.serverDirectory(of: prefix) == server)
+        let backup = try PrefixTools.backUp(prefix)
+        try Data("after".utf8).write(to: registry)
+        #expect(try Data(contentsOf: backup.appending(path: "user.reg")) == Data("before".utf8))
+    }
+
     @Test("Deleting a backup takes that one and leaves the live prefix")
     func deleteBackupsClearsThemAll() throws {
         let fm = FileManager.default

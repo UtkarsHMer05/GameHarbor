@@ -20,7 +20,7 @@ out/checks/ownership
 out/checks/license
 python3 checks/manifest_server.py "$PWD/out/checks/manifest"
 out/checks/manifest-watch
-swiftc SteamPlayMac-app/Sources/SteamPlayMacApp/{Paths,StepFailure,Subprocess,MacCrab,SteamInstaller,ZipImporter,LuaManifest,SteamPlayMacConfig}.swift checks/safety.swift -o out/checks/safety
+swiftc SteamPlayMac-app/Sources/SteamPlayMacApp/{Paths,StepFailure,Subprocess,MacCrab,SteamInstaller,ZipImporter,LuaManifest,SteamPlayMacConfig,ConfigStore}.swift checks/safety.swift -o out/checks/safety
 swiftc SteamPlayMac-app/Sources/SteamPlayMacApp/{Paths,StepFailure,Subprocess,ZipImporter,LuaManifest,SteamPlayMacConfig,ManifestFetcher}.swift checks/manifest_fetch.swift -o out/checks/manifest-fetch
 out/checks/manifest-fetch
 if [[ -n "${STEAMPLAYMAC_CHECK_CLIENT:-}" ]]; then
