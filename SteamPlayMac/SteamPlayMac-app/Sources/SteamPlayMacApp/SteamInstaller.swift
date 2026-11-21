@@ -46,6 +46,8 @@ enum SteamInstaller {
         guard FileManager.default.fileExists(atPath: Paths.steamApp.path) else {
             throw StepFailure(step: "Locate Steam", detail: "/Applications/Steam.app not found.")
         }
+        let lock = try acquireBundleLock(for: Paths.steamApp)
+        defer { close(lock) }
         switch MacCrab.status() {
         case .supported: break
         case .unsupported(let version):
@@ -65,10 +67,26 @@ enum SteamInstaller {
     }
 
     static func uninstall() throws {
+        let lock = try acquireBundleLock(for: Paths.steamApp)
+        defer { close(lock) }
         try ensureModifiable()
         try Subprocess.stopSteam()
         try updateBundle(Paths.steamApp, sourceDylib: nil)
         registerBundle()
+    }
+
+    // GameHarbor also locks Steam's parent directory while changing the bundle.
+    static func acquireBundleLock(for app: URL) throws -> Int32 {
+        let fd = open(app.deletingLastPathComponent().path, O_RDONLY | O_DIRECTORY | O_CLOEXEC)
+        guard fd >= 0 else {
+            throw StepFailure(step: "Lock Steam", detail: String(cString: strerror(errno)))
+        }
+        guard flock(fd, LOCK_EX | LOCK_NB) == 0 else {
+            let detail = String(cString: strerror(errno))
+            close(fd)
+            throw StepFailure(step: "Lock Steam", detail: "Could not lock the Steam bundle folder. \(detail)")
+        }
+        return fd
     }
 
     // Stage and sign a full copy before touching the working Steam bundle.
@@ -76,10 +94,8 @@ enum SteamInstaller {
         let fm = FileManager.default
         let work = app.deletingLastPathComponent().appendingPathComponent(".steamplaymac-\(UUID().uuidString)", isDirectory: true)
         let staged = work.appendingPathComponent("Steam.app", isDirectory: true)
-        let backup = work.appendingPathComponent("Steam.previous.app", isDirectory: true)
-        var keepBackup = false
         try fm.createDirectory(at: work, withIntermediateDirectories: false)
-        defer { if !keepBackup { try? fm.removeItem(at: work) } }
+        defer { try? fm.removeItem(at: work) }
         try fm.copyItem(at: app, to: staged)
 
         let plist = staged.appendingPathComponent("Contents/Info.plist")
@@ -120,16 +136,8 @@ enum SteamInstaller {
         let verified = Subprocess.run("/usr/bin/codesign", ["--verify", "--strict", staged.path])
         guard verified.code == 0 else { throw StepFailure(step: "Verify Steam", detail: verified.stderr) }
 
-        try fm.moveItem(at: app, to: backup)
-        do {
-            try fm.moveItem(at: staged, to: app)
-        } catch {
-            do { try fm.moveItem(at: backup, to: app) }
-            catch {
-                keepBackup = true
-                throw StepFailure(step: "Restore Steam", detail: "The original Steam app is at \(backup.path): \(error.localizedDescription)")
-            }
-            throw error
+        guard renameatx_np(AT_FDCWD, staged.path, AT_FDCWD, app.path, UInt32(RENAME_SWAP)) == 0 else {
+            throw StepFailure(step: "Replace Steam", detail: String(cString: strerror(errno)))
         }
     }
 

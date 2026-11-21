@@ -114,10 +114,11 @@ final class InstallViewController: NSViewController {
 
     private func refresh() {
         let status = SteamInstaller.status()
+        let buildStatus = MacCrab.status()
         let hasPayload = (bundledDylib != nil)
         let blockOn = SteamInstaller.updateBlockEnabled()
 
-        let summary = summarize(status: status, blockOn: blockOn)
+        let summary = summarize(status: status, buildStatus: buildStatus, blockOn: blockOn)
         statusGlyph.image = NSImage(systemSymbolName: summary.tone.symbol, accessibilityDescription: nil)
         statusGlyph.contentTintColor = summary.tone.color
         headlineLabel.stringValue = summary.headline
@@ -152,7 +153,7 @@ final class InstallViewController: NSViewController {
         default: updateBlockButton.isEnabled = false
         }
 
-        installButton.isEnabled = hasPayload && status != .steamMissing && MacCrab.status() == .supported
+        installButton.isEnabled = hasPayload && status != .steamMissing && buildStatus == .supported
     }
 
     private struct Summary {
@@ -161,16 +162,16 @@ final class InstallViewController: NSViewController {
         let detail: String
     }
 
-    private func summarize(status: SteamInstaller.Status, blockOn: Bool) -> Summary {
-        if case .unsupported(let version) = MacCrab.status() {
+    private func summarize(status: SteamInstaller.Status, buildStatus: MacCrab.Status, blockOn: Bool) -> Summary {
+        if case .unsupported(let version) = buildStatus {
             return Summary(tone: .warn, headline: "Steam build not supported",
                            detail: "Steam build \(version) has no matching SteamPlayMac profile. SteamPlayMac stays inactive until a matching profile is available.")
         }
-        if MacCrab.status() == .unknown {
+        if buildStatus == .unknown {
             return Summary(tone: .warn, headline: "Steam build unknown",
                            detail: "The active Steam build could not be read. SteamPlayMac cannot be installed until it can be checked.")
         }
-        if MacCrab.status() == .steamMissing && status != .steamMissing {
+        if buildStatus == .steamMissing && status != .steamMissing {
             return Summary(tone: .warn, headline: "Steam client not found",
                            detail: "Open Steam once so its client can be checked.")
         }

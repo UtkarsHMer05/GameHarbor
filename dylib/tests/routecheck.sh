@@ -4,7 +4,7 @@ set -e
 SRC="${1:-$(dirname "$0")/../feats/compat_run.sh}"
 [ -f "$SRC" ] || { echo "routecheck: $SRC not present, skipped"; exit 0; }
 
-body=$(sed -n '/^target="\$1"$/,/^fi$/p' "$SRC")
+body=$(sed -n '/^without_lock_fds() {$/,/^}$/p; /^target="\$1"$/,/^fi$/p' "$SRC")
 [ -n "$body" ] || { echo "FAIL: the launch routing not found in $SRC"; exit 1; }
 case "$body" in
   *'case "$verb" in'*) ;;

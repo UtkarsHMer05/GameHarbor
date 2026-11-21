@@ -532,7 +532,8 @@ final class SystemStatus {
 
     func repairSteam() async {
         await perform(from: RepairPhase.checking.label) { progress in
-            let lock = try DeploymentContent.acquireInstallationLock()
+            let lock = try DeploymentContent.acquireInstallationLock(
+                steamFolder: SupportPaths.Steam.app.deletingLastPathComponent())
             defer { lock.release() }
             let result = try await SteamRepair.run(report: { progress($0.label) })
 

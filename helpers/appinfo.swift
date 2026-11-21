@@ -7,9 +7,40 @@
 // inferred from the filesystem. Exits non-zero without printing on read
 // failure.
 
-import Foundation
+import AppKit
 
 let args = CommandLine.arguments
+
+if args.count == 3, args[1] == "--focus-game" {
+    let workspace = NSWorkspace.shared
+    let target = URL(filePath: args[2]).resolvingSymlinksInPath().path
+    let launcher = getppid()
+    guard launcher > 1, let steam = workspace.frontmostApplication,
+          steam.bundleIdentifier == "com.valvesoftware.steam" else { exit(0) }
+
+    let deadline = ProcessInfo.processInfo.systemUptime + 30
+    while getppid() == launcher, ProcessInfo.processInfo.systemUptime < deadline,
+          workspace.frontmostApplication?.processIdentifier == steam.processIdentifier {
+        let games = workspace.runningApplications.filter {
+            !$0.isTerminated && $0.activationPolicy != .prohibited &&
+            $0.bundleURL?.resolvingSymlinksInPath().path == target
+        }
+        if !games.isEmpty,
+           let windows = CGWindowListCopyWindowInfo([.excludeDesktopElements], kCGNullWindowID)
+               as? [[String: Any]] {
+            let owners = Set(windows.compactMap { window -> pid_t? in
+                guard window[kCGWindowLayer as String] as? Int == 0 else { return nil }
+                return window[kCGWindowOwnerPID as String] as? pid_t
+            })
+            if let game = games.first(where: { owners.contains($0.processIdentifier) }),
+               getppid() == launcher,
+               workspace.frontmostApplication?.processIdentifier == steam.processIdentifier,
+               game.activate(options: [.activateAllWindows]) { exit(0) }
+        }
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.25))
+    }
+    exit(0)
+}
 
 func sameBundle(_ left: String, _ right: String) throws -> Bool {
     let fm = FileManager.default

@@ -1,5 +1,7 @@
+import errno
 import importlib.util
 import json
+import os
 from pathlib import Path
 import shutil
 import tempfile
@@ -34,6 +36,38 @@ class GameSafetyTests(unittest.TestCase):
     def scan(self):
         return safety.run(self.steamapps, self.backups, busy=lambda: False, min_free=0)
 
+    def transfer(self, destination):
+        return safety.import_game("123", self.steamapps, destination, busy=lambda: False,
+                                  steam_open=lambda: False, ready=lambda: True)
+
+    def test_import_copies_game_without_changing_the_source(self):
+        destination = self.root / "other/steamapps"
+        (destination / "common").mkdir(parents=True)
+        with patch.object(safety, "clone_file", side_effect=OSError(errno.EXDEV, "cross-volume")):
+            result = self.transfer(destination)
+        imported = Path(result["imported_to"])
+        self.assertEqual((imported / "game.exe").read_bytes(), b"working game")
+        self.assertEqual((destination / self.manifest.name).read_bytes(), self.manifest.read_bytes())
+        self.assertTrue((imported / "link").is_symlink())
+        self.assertEqual((self.game / "game.exe").read_bytes(), b"working game")
+        with self.assertRaises(FileExistsError):
+            self.transfer(destination)
+
+    def test_import_refuses_the_same_library_and_rolls_back_on_manifest_failure(self):
+        alias = self.root / "same-library"
+        alias.symlink_to(self.steamapps)
+        with self.assertRaisesRegex(ValueError, "different Steam library"):
+            self.transfer(alias)
+
+        destination = self.root / "other/steamapps"
+        (destination / "common").mkdir(parents=True)
+        with patch.object(os, "link", side_effect=OSError("simulated publication failure")):
+            with self.assertRaisesRegex(OSError, "simulated publication"):
+                self.transfer(destination)
+        self.assertEqual(list((destination / "common").iterdir()), [])
+        self.assertFalse((destination / self.manifest.name).exists())
+        self.assertEqual((self.game / "game.exe").read_bytes(), b"working game")
+
     def test_saved_copy_survives_removed_game_files(self):
         result = self.scan()
         self.assertEqual(result["games"]["123"]["result"], "saved")
@@ -58,11 +92,20 @@ class GameSafetyTests(unittest.TestCase):
         self.assertEqual(self.scan()["games"]["123"]["result"], "saved")
         self.assertEqual((self.backups / "games/123/previous/files/game.exe").read_bytes(), b"working game")
         self.assertEqual((self.backups / "games/123/current/files/game.exe").read_bytes(), b"updated game")
+
         (self.game / "game.exe").write_bytes(b"another game")
         with patch.object(safety, "clone_file", side_effect=OSError("simulated clone failure")):
             result = self.scan()
         self.assertTrue(result["errors"])
         self.assertEqual((self.backups / "games/123/current/files/game.exe").read_bytes(), b"updated game")
+
+    def test_same_size_edit_with_restored_mtime_makes_a_new_backup(self):
+        self.scan()
+        game = self.game / "game.exe"
+        original = game.stat()
+        game.write_bytes(b"updated game")
+        os.utime(game, ns=(original.st_atime_ns, original.st_mtime_ns))
+        self.assertEqual(self.scan()["games"]["123"]["result"], "saved")
 
     def test_running_wine_defers_and_traversal_is_rejected(self):
         result = safety.run(self.steamapps, self.backups, busy=lambda: True, min_free=0)
@@ -96,6 +139,10 @@ class GameSafetyTests(unittest.TestCase):
         (self.game / "game.exe").write_bytes(b"updated game")
         self.scan()
         shutil.rmtree(self.backups / "games/123/current")
+        metadata_file = self.backups / "games/123/previous/metadata.json"
+        metadata = json.loads(metadata_file.read_text())
+        del metadata["snapshot_identity"]
+        metadata_file.write_text(json.dumps(metadata))
         safety.restore("123", self.steamapps, self.backups, busy=lambda: False,
                        steam_open=lambda: False, ready=lambda: True)
         self.assertEqual((self.game / "game.exe").read_bytes(), b"working game")
@@ -122,7 +169,10 @@ class GameSafetyTests(unittest.TestCase):
 
     def test_restore_refuses_changed_backup(self):
         self.scan()
-        (self.backups / "games/123/current/files/game.exe").write_bytes(b"damaged")
+        saved = self.backups / "games/123/current/files/game.exe"
+        original = saved.stat()
+        saved.write_bytes(b"damaged game")
+        os.utime(saved, ns=(original.st_atime_ns, original.st_mtime_ns))
         with self.assertRaisesRegex(ValueError, "saved game files changed"):
             safety.restore("123", self.steamapps, self.backups, busy=lambda: False,
                            steam_open=lambda: False, ready=lambda: True)

@@ -289,6 +289,7 @@ app_id=100
 target=""
 find_client_root "$T/steam/Steam.AppBundle/Steam/Contents/MacOS"
 read_app_meta
+is "relative client path terminates at its root" . "$(cd "$T"; find_client_root relative/client; printf '%s' "$client_root")"
 loader_root="$T/launchers/100"
 loader_res="$loader_root/new/Contents/Resources"
 mkdir -p "$loader_res"
@@ -340,6 +341,20 @@ is "no artwork, no icon key" "" "$icon_arg"
 is "no artwork logged" "no icon resolved, launching without one" "$(cat "$log")"
 if [ -d "$np_support/shortcut-icons" ]; then bad "launch leaves shortcut cache alone" "absent" "present"; else ok "launch leaves shortcut cache alone"; fi
 
+saved_verb=${verb-}
+verb=waitforexitandrun
+meta_clienticon=abc123
+# shellcheck disable=SC2329 # called by the extracted icon function
+curl() { sleep 2; printf '404'; }
+eval "$icon_lines"
+icon_pid=$!
+is "launch does not wait for icon download" no "$([ -e "$loader_root/clienticon-abc123.absent" ] && echo yes || echo no)"
+wait "$icon_pid"
+is "background download still records missing icon" yes "$([ -e "$loader_root/clienticon-abc123.absent" ] && echo yes || echo no)"
+unset -f curl
+verb=$saved_verb
+meta_clienticon=""
+
 echo "== session lasts as long as the shim =="
 session_trap=$(sed -n '/^terminate() {$/,/^trap terminate TERM INT HUP$/p' "$SRC")
 session_wait=$(sed -n '/^open_pid=\$!$/,/^exit \$status$/p' "$SRC")
@@ -348,7 +363,9 @@ session_wait=$(sed -n '/^open_pid=\$!$/,/^exit \$status$/p' "$SRC")
   printf 'log=%s\nopen() { sleep "$1"; return "$2"; }\n' "$T/session.log"
   printf 'kill_wine_prefix() { echo kill >> "%s"; }\n' "$T/session.ev"
   printf '%s\n' "$session_trap"
-  printf 'open "$1" "$2" &\n'
+  printf 'exec 8>> "%s"\n/usr/bin/lockf -s -t 0 8 || exit 1\n' "$T/session.lock"
+  printf 'np_support="%s"\ngame_mode_app="%s"\n' "$T/focus-support" "$T/Game A.app"
+  printf 'open "$1" "$2" 8>&- &\n'
   printf '%s\n' "$session_wait"
 } > "$T/session.sh"
 : > "$T/session.ev"
@@ -361,11 +378,15 @@ is "the prefix is torn down once" kill "$(cat "$T/session.ev")"
 start=$(date +%s)
 sh "$T/session.sh" 30 0 & sp=$!
 sleep 1
+is "the session locks its prefix until the shim ends" busy "$(/usr/bin/lockf -s -t 0 "$T/session.lock" true 2>/dev/null && echo free || echo busy)"
+is "resume record points at the exact session bundle" "$T/Game A.app" "$(cat "$T/focus-support/focus/$sp")"
 kill -TERM "$sp"
 rc=0; wait "$sp" || rc=$?
 is "exit game ends the session" 143 "$rc"
 is "exit game does not wait out the shim" yes "$([ $(($(date +%s) - start)) -lt 5 ] && echo yes || echo no)"
 is "exit game tears the prefix down" yes "$(grep -q kill "$T/session.ev" && echo yes || echo no)"
+is "the prefix lock is released after the session" free "$(/usr/bin/lockf -s -t 0 "$T/session.lock" true 2>/dev/null && echo free || echo busy)"
+is "resume record is removed on exit" no "$([ -e "$T/focus-support/focus/$sp" ] && echo yes || echo no)"
 
 echo "== fallback install failure =="
 fallback_calls=$(sed -n '/^  install_bundle || exit 1$/,/^elif install_game_runner; then$/p' "$SRC" | sed '$d')
@@ -410,6 +431,7 @@ wine_unix="$CX_ROOT/lib/wine/aarch64-unix"
 mkdir -p "$wine_unix/wine.app/Contents/MacOS" "$wine_unix/wine.app/Contents/_CodeSignature" \
   "$CX_ROOT/lib/wine/x86_64-windows" "$CX_ROOT/lib/wine/aarch64-windows" "$CX_ROOT/lib/other" "$CX_ROOT/share"
 printf 'wine' > "$wine_unix/wine.app/Contents/MacOS/wine"
+chmod +x "$wine_unix/wine.app/Contents/MacOS/wine"
 printf 'so' > "$wine_unix/ntdll.so"
 printf 'dll' > "$CX_ROOT/lib/wine/x86_64-windows/lsteamclient.dll"
 loader_root="$T/game"
@@ -450,6 +472,9 @@ before=$(stat -f %i "$game_runner/lib/wine/aarch64-unix/ntdll.so")
 runner_build
 is "reuse" "game's wine.app already up to date" "$(cat "$log")"
 is "clone reused" "$before" "$(stat -f %i "$game_runner/lib/wine/aarch64-unix/ntdll.so")"
+rm "$game_app/Contents/MacOS/wine"
+runner_build
+is "missing cached executable is rebuilt" "wine" "$(cat "$game_app/Contents/MacOS/wine")"
 runner_build plist2 icon2
 is "rename" "game's wine.app updated" "$(cat "$log")"
 is "new Info.plist" "plist2" "$(cat "$game_app/Contents/Info.plist")"
@@ -464,6 +489,9 @@ sleep 1
 printf 'restored wine' > "$wine_unix/wine.app/Contents/MacOS/wine"
 runner_build plist2 icon2
 is "reclone after in-place write" "restored wine" "$(cat "$game_app/Contents/MacOS/wine")"
+printf 'restored ntdll' > "$wine_unix/ntdll.so"
+runner_build plist2 icon2
+is "reclone after in-place bridge patch" "restored ntdll" "$(cat "$game_runner/lib/wine/aarch64-unix/ntdll.so")"
 echo "== runner then tile =="
 loader_work=$(mktemp -d "$loader_root/.build.XXXXXX")
 loader_stage="$loader_work/new/Game.app"
@@ -507,6 +535,7 @@ CX_ROOT="$T/cx-rosetta"
 wine_unix="$CX_ROOT/lib/wine/x86_64-unix"
 mkdir -p "$wine_unix" "$CX_ROOT/lib/wine/x86_64-windows"
 printf 'x86 wine' > "$wine_unix/wine"
+chmod +x "$wine_unix/wine"
 printf 'so' > "$wine_unix/ntdll.so"
 loader_root="$T/game-rosetta"
 game_runner="$loader_root/runner"

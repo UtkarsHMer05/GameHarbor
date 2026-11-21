@@ -110,7 +110,8 @@ final class RepairViewController: NSViewController {
     // MARK: - Rendering
 
     private func refresh() {
-        let steamPresent = MacCrab.status() != .steamMissing
+        let buildStatus = MacCrab.status()
+        let steamPresent = buildStatus != .steamMissing
 
         detailLabel.isHidden = false
 
@@ -119,7 +120,7 @@ final class RepairViewController: NSViewController {
             glyph.contentTintColor = .secondaryLabelColor
             headlineLabel.stringValue = "Repair SteamPlayMac"
             detailLabel.stringValue = "Reinstall the SteamPlayMac integration while preserving other Steam integrations."
-            buildLabel.stringValue = currentBuildLine()
+            buildLabel.stringValue = currentBuildLine(buildStatus)
             buildLabel.isHidden = false
         } else {
             glyph.image = NSImage(systemSymbolName: StatusTone.bad.symbol, accessibilityDescription: nil)
@@ -131,13 +132,14 @@ final class RepairViewController: NSViewController {
             buildLabel.isHidden = true
         }
 
-        repairButton.isEnabled = steamPresent && MacCrab.status() == .supported
+        repairButton.isEnabled = buildStatus == .supported
         openButton.isEnabled = steamPresent
     }
 
-    private func currentBuildLine() -> String {
-        switch MacCrab.status() {
-        case .supported, .unsupported:
+    private func currentBuildLine(_ status: MacCrab.Status) -> String {
+        switch status {
+        case .unsupported(let version): return "Current Steam Build: \(version)"
+        case .supported:
             if let v = MacCrab.detectedVersion() { return "Current Steam Build: \(v)" }
             return "Current Steam Build: unknown"
         case .unknown:

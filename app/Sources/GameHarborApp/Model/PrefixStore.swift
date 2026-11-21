@@ -87,6 +87,19 @@ enum PrefixStore {
         SteamLibrary(root: root, volume: volumeName(of: root))
     }
 
+    static func requireSupportedVolume(_ prefix: WinePrefix, step: String) throws {
+        for url in [prefix.library.root, prefix.root, prefix.pfx] {
+            var info = statfs()
+            guard statfs(url.path(percentEncoded: false), &info) == 0 else { continue }
+            let format = withUnsafeBytes(of: &info.f_fstypename) {
+                String(decoding: $0.prefix(while: { $0 != 0 }), as: UTF8.self).lowercased()
+            }
+            if format.contains("ntfs") || format == "exfat" || format == "msdos" {
+                throw StepFailure(step: step, detail: String(localized: "Wine prefixes on \(format) are unsupported. Keep a copy of your saves and move the Steam library to APFS."))
+            }
+        }
+    }
+
     static func volumeName(of root: URL) -> String? {
         guard
             let values = try? root.resourceValues(forKeys: [.volumeNameKey, .volumeIsRootFileSystemKey]),
@@ -400,7 +413,7 @@ enum PrefixStore {
         isClaimed(prefix) || serverIsBusy(prefix, root: root, lsof: lsof, drainTimeout: drainTimeout)
     }
 
-    // The lock only, without the wineserver check. A running game does not hold it.
+    // The lock only, without the wineserver check for tools launched outside Steam.
     static func isClaimed(_ prefix: WinePrefix) -> Bool {
         let lock = open(lockPath(of: prefix), O_RDWR | O_NOFOLLOW | O_CLOEXEC)
         guard lock >= 0 else { return errno != ENOENT }
@@ -408,7 +421,7 @@ enum PrefixStore {
         return !locked(lock)
     }
 
-    // A launch takes this lock while it sets the prefix up. Holding it stops a launch from
+    // A launch holds this lock through the session. Holding it stops a launch from
     // starting partway through a rebuild/delete.
     static func claim(
         _ prefix: WinePrefix, root: URL = serverRoot, lsof: String = "/usr/sbin/lsof",

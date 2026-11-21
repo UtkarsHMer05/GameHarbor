@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <objc/runtime.h>
 #include <objc/message.h>
@@ -17,6 +18,22 @@ static int failures;
 static int handoffs;
 static id fake_owner;
 static int fake_pid;
+static id fake_apps;
+static id game_app;
+static id other_app;
+static id msg(id obj, const char *sel);
+
+static id running_apps(id self, SEL cmd) { return fake_apps; }
+static id game_bundle_url(id self, SEL cmd) {
+    CFURLRef url = CFURLCreateWithFileSystemPath(NULL,
+        self == game_app ? CFSTR("/tmp/Game A.app") : CFSTR("/tmp/Game B.app"), kCFURLPOSIXPathStyle, true);
+    return msg((id)url, "autorelease");
+}
+static bool app_alive(id self, SEL cmd) { return false; }
+static long app_policy(id self, SEL cmd) { return 1; }
+static void *direct_app(void *self, void *cmd, pid_t pid) {
+    return pid == 12345 ? other_app : NULL;
+}
 
 static void check(int ok, const char *what) {
     if (!ok) {
@@ -53,6 +70,54 @@ static void menu_bar_owner(id workspace, id owner, int pid) {
     ((void (*)(id, SEL, id, id, id, void *))objc_msgSend)(
         (id)np_watcher, sel_registerName("observeValueForKeyPath:ofObject:change:context:"),
         (id)CFSTR("menuBarOwningApplication"), workspace, nil, NULL);
+}
+
+static void check_resume(id workspace) {
+    Class app = make_class("FocusGame", "bundleURL", (IMP)game_bundle_url, "@@:");
+    class_addMethod(app, sel_registerName("isTerminated"), (IMP)app_alive, "B@:");
+    class_addMethod(app, sel_registerName("activationPolicy"), (IMP)app_policy, "q@:");
+    class_addMethod(object_getClass(workspace), sel_registerName("runningApplications"), (IMP)running_apps, "@@:");
+    game_app = msg(msg((id)app, "alloc"), "init");
+    other_app = msg(msg((id)app, "alloc"), "init");
+    id games[] = { other_app, game_app };
+    fake_apps = ((id (*)(id, SEL, id *, unsigned long))objc_msgSend)(
+        (id)objc_getClass("NSArray"), sel_registerName("arrayWithObjects:count:"), games, 2);
+    check(np_game_application(workspace, "/tmp/Game A.app") == game_app, "resume matches the exact game bundle");
+    check(np_game_application(workspace, "/tmp/Gone.app") == nil, "resume does not pick an unrelated game");
+
+    orig_running_app = direct_app;
+    check(np_hook_running_app(NULL, NULL, 12345) == other_app, "native apps retain their lookup result");
+
+    char scratch[] = "/tmp/gameharbor-focus.XXXXXX";
+    if (!mkdtemp(scratch)) {
+        check(0, "create temporary focus directory");
+        return;
+    }
+    setenv("HOME", scratch, 1);
+    char directory[PATH_MAX], record[PATH_MAX], target[PATH_MAX];
+    snprintf(directory, sizeof(directory), "%s/Library", scratch);
+    mkdir(directory, 0700);
+    strcat(directory, "/Application Support"); mkdir(directory, 0700);
+    strcat(directory, "/notproton"); mkdir(directory, 0700);
+    strcat(directory, "/focus"); mkdir(directory, 0700);
+    np_focus_path(getpid(), record);
+    FILE *file = fopen(record, "w");
+    check(file != NULL, "create live focus record");
+    if (file) {
+        fputs("/tmp/Game A.app\n", file);
+        fclose(file);
+        check(np_focus_target(getpid(), target) && strcmp(target, "/tmp/Game A.app") == 0,
+              "a record for the running launcher is accepted");
+        const struct timeval old[2] = {{1, 0}, {1, 0}};
+        utimes(record, old);
+        check(!np_focus_target(getpid(), target), "a record older than the launcher is rejected");
+        unlink(record);
+    }
+    for (int depth = 0; depth < 4; depth++) {
+        rmdir(directory);
+        *strrchr(directory, '/') = '\0';
+    }
+    rmdir(scratch);
 }
 
 int main(void) {
@@ -100,11 +165,12 @@ int main(void) {
     menu_bar_owner(workspace, nil, 0);
     become_active(delegate);
     check(handoffs == 3, "an activation after nobody owned the menu bar hands off");
+    check_resume(workspace);
 
     if (failures) {
         printf("==> activatecheck: %d check(s) failed\n", failures);
         return 1;
     }
-    printf("==> activatecheck: Steam hands off after losing the menu bar and skips menu bar clicks\n");
+    printf("==> activatecheck: Steam hands off focus and resolves the exact game on resume\n");
     return 0;
 }

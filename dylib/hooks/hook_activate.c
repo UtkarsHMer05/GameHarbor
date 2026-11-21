@@ -5,16 +5,23 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <dispatch/dispatch.h>
 #include <dlfcn.h>
+#include <fcntl.h>
+#include <libproc.h>
 #include <mach-o/dyld.h>
+#include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 typedef void (*fn_did_become_active)(void *self, void *cmd, void *note);
+typedef void *(*fn_running_app)(void *self, void *cmd, pid_t pid);
 
 static void *(*np_get_class)(const char *);
 static void *(*np_sel)(const char *);
 static void *np_msg_send;
 static fn_did_become_active orig_did_become_active;
+static fn_running_app orig_running_app;
 static void *np_watcher;
 static int np_menu_bar_lost;
 static int np_vgui_seen;
@@ -47,16 +54,106 @@ static void np_hook_did_become_active(void *self, void *cmd, void *note) {
     orig_did_become_active(self, cmd, note);
 }
 
+static int np_focus_path(pid_t pid, char path[PATH_MAX]) {
+    const char *home = getenv("HOME");
+    if (!home || pid <= 1)
+        return 0;
+    int n = snprintf(path, PATH_MAX, "%s/Library/Application Support/notproton/focus/%d", home, pid);
+    return n > 0 && n < PATH_MAX;
+}
+
+static int np_focus_target(pid_t pid, char target[PATH_MAX]) {
+    char path[PATH_MAX];
+    if (!np_focus_path(pid, path))
+        return 0;
+    int fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+    if (fd < 0)
+        return 0;
+    FILE *record = fdopen(fd, "r");
+    if (!record) {
+        close(fd);
+        return 0;
+    }
+    struct stat st;
+    struct proc_bsdinfo process;
+    // A killed launcher can leave a record. Reject it if the PID has been reused.
+    int read = fstat(fileno(record), &st) == 0 && S_ISREG(st.st_mode) &&
+        proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &process, sizeof(process)) == sizeof(process) &&
+        (st.st_mtimespec.tv_sec > (time_t)process.pbi_start_tvsec ||
+         (st.st_mtimespec.tv_sec == (time_t)process.pbi_start_tvsec &&
+          st.st_mtimespec.tv_nsec / 1000 >= (long)process.pbi_start_tvusec)) &&
+        fgets(target, PATH_MAX, record) != NULL;
+    fclose(record);
+    if (!read)
+        return 0;
+    char *newline = strchr(target, '\n');
+    if (!newline || target[0] != '/')
+        return 0;
+    *newline = '\0';
+    return 1;
+}
+
+static void *np_game_application(void *workspace, const char *target) {
+    void *apps = np_msg(workspace, "runningApplications");
+    unsigned long count = ((unsigned long (*)(void *, void *))np_msg_send)(apps, np_sel("count"));
+    for (unsigned long i = 0; i < count; i++) {
+        void *app = ((void *(*)(void *, void *, unsigned long))np_msg_send)(apps, np_sel("objectAtIndex:"), i);
+        if (((bool (*)(void *, void *))np_msg_send)(app, np_sel("isTerminated")) ||
+            ((long (*)(void *, void *))np_msg_send)(app, np_sel("activationPolicy")) == 2)
+            continue;
+        void *bundle = np_msg(app, "bundleURL");
+        const char *path = np_msg(np_msg(bundle, "path"), "fileSystemRepresentation");
+        if (path && strcmp(path, target) == 0)
+            return app;
+    }
+    return NULL;
+}
+
+static void *np_hook_running_app(void *self, void *cmd, pid_t pid) {
+    void *direct = orig_running_app(self, cmd, pid);
+    if (direct || pid <= 1)
+        return direct;
+
+    // Steam can track the outer launch-options shell, which waits for our run script.
+    pid_t children[32];
+    char target[PATH_MAX];
+    if (!np_focus_target(pid, target)) {
+        int count = proc_listchildpids(pid, children, sizeof(children));
+        int found = 0;
+        for (int i = 0; i < count && i < 32; i++) {
+            if (!np_focus_target(children[i], target))
+                continue;
+            if (found)
+                return NULL;
+            found = 1;
+        }
+        if (!found)
+            return NULL;
+    }
+    return np_game_application(np_msg(np_get_class("NSWorkspace"), "sharedWorkspace"), target);
+}
+
 static void np_activate_install_main(void *unused) {
     (void)unused;
     void *(*alloc_pair)(void *, const char *, size_t) = dlsym(RTLD_DEFAULT, "objc_allocateClassPair");
     void (*register_pair)(void *) = dlsym(RTLD_DEFAULT, "objc_registerClassPair");
     int (*add_method)(void *, void *, void *, const char *) = dlsym(RTLD_DEFAULT, "class_addMethod");
     void *(*get_method)(void *, void *) = dlsym(RTLD_DEFAULT, "class_getInstanceMethod");
+    void *(*get_class_method)(void *, void *) = dlsym(RTLD_DEFAULT, "class_getClassMethod");
+    void *(*get_imp)(void *) = dlsym(RTLD_DEFAULT, "method_getImplementation");
     void *(*set_imp)(void *, void *) = dlsym(RTLD_DEFAULT, "method_setImplementation");
     if (!alloc_pair || !register_pair || !add_method || !get_method || !set_imp) {
         NP_WARN("[activate] objc class functions unavailable, not hooked");
         return;
+    }
+
+    void *running = np_get_class("NSRunningApplication");
+    if (!orig_running_app && running && get_class_method && get_imp) {
+        void *lookup = get_class_method(running, np_sel("runningApplicationWithProcessIdentifier:"));
+        if (lookup) {
+            orig_running_app = (fn_running_app)get_imp(lookup);
+            set_imp(lookup, (void *)np_hook_running_app);
+        }
     }
 
     void *delegate = np_get_class("VGUIApplicationDelegate");

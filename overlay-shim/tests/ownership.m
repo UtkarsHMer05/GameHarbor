@@ -289,6 +289,11 @@ static int rebuilds(void)
 			device.fail = YES;
 			[buffer.encoder setRenderPipelineState:base];
 			CHECK(buffer.encoder.bound == base, "a failed compile keeps the original pipeline");
+			for (int bind = 0; bind < 30; bind++)
+				[buffer.encoder setRenderPipelineState:base];
+			CHECK(device.builds == 1, "failed compiles are throttled across repeated binds");
+			NPOverlayPipelineCache *cache = objc_getAssociatedObject(base, &pipeline_cache_key);
+			cache->entry.variants[0].retry_after = 0;
 			device.fail = NO;
 			[buffer.encoder setRenderPipelineState:base];
 			CHECK(buffer.encoder.bound != base, "rebuild %d still gets a corrected pipeline", i);

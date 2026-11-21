@@ -12761,6 +12761,34 @@
         }
       }
     },
+    "Wine prefixes on %@ are unsupported. Keep a copy of your saves and move the Steam library to APFS." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wine-Präfixe auf %@ werden nicht unterstützt. Sichere deine Spielstände und verschiebe die Steam-Bibliothek auf ein APFS-Volume."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les préfixes Wine sur %@ ne sont pas pris en charge. Conservez une copie de vos sauvegardes et déplacez la bibliothèque Steam vers un volume APFS."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I prefissi di Wine su %@ non sono supportati. Conserva una copia dei salvataggi e sposta la libreria di Steam su un volume APFS."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不支持在 %@ 上使用 Wine 前缀。请备份游戏存档，并将 Steam 库移至 APFS 卷。"
+          }
+        }
+      }
+    },
     "WineD3D" : {
       "shouldTranslate" : false
     },

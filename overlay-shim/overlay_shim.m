@@ -20,6 +20,7 @@
 #import <stdarg.h>
 #import <stdio.h>
 #include <string.h>
+#include <time.h>
 #import <unistd.h>
 
 __attribute__((format(printf, 1, 2)))
@@ -45,6 +46,7 @@ enum {
 struct variant {
 	NSUInteger format;
 	id state;
+	uint64_t retry_after;
 	int logged;
 };
 
@@ -317,13 +319,25 @@ static int encoder_format(id encoder, NSUInteger *format, id<MTLCommandBuffer> *
 
 static struct variant *variant_for(struct pipeline_entry *entry, NSUInteger format)
 {
+	struct variant *slot = NULL;
 	for (int i = 0; i < entry->variant_count; i++) {
-		if (entry->variants[i].format == format)
-			return &entry->variants[i];
+		if (entry->variants[i].format == format) {
+			slot = &entry->variants[i];
+			break;
+		}
 	}
 
-	if (entry->variant_count == max_variants)
-		return NULL;
+	if (slot != NULL) {
+		if (slot->state != nil)
+			return slot;
+		if (clock_gettime_nsec_np(CLOCK_UPTIME_RAW) < slot->retry_after)
+			return NULL;
+	} else {
+		if (entry->variant_count == max_variants)
+			return NULL;
+		slot = &entry->variants[entry->variant_count++];
+		slot->format = format;
+	}
 
 	// The descriptor is a private copy, but the copy depth of a color
 	// attachment array is unspecified, so the base format is retained
@@ -334,17 +348,14 @@ static struct variant *variant_for(struct pipeline_entry *entry, NSUInteger form
 	entry->descriptor.colorAttachments[0].pixelFormat = (MTLPixelFormat)entry->base_format;
 
 	if (state == nil) {
+		slot->retry_after = clock_gettime_nsec_np(CLOCK_UPTIME_RAW) + NSEC_PER_SEC;
 		shim_log("overlay_shim variant_for: format %lu (%s) failed: %s\n",
 		        (unsigned long)format, format_name(format),
 		        error != nil ? [[error localizedDescription] UTF8String] : "no reason given");
 		return NULL;
 	}
 
-	struct variant *slot = &entry->variants[entry->variant_count];
-	slot->format = format;
 	slot->state = state;
-	slot->logged = 0;
-	entry->variant_count++;
 
 	shim_log("overlay_shim variant_for: built %s pipeline for base %s\n",
 	        format_name(format), format_name(entry->base_format));
@@ -1018,7 +1029,7 @@ static void hook_send_event(id app, SEL selector, id event)
 	next_send_event(app, selector, event);
 }
 
-// Called by lsteamclient on GameOverlayActivated_t,
+// Called by lsteamclient on GameOverlayActivated_t.
 __attribute__((visibility("default"))) void np_overlay_shim_set_active(int active)
 {
 	static dispatch_once_t once;
@@ -1030,9 +1041,25 @@ __attribute__((visibility("default"))) void np_overlay_shim_set_active(int activ
 		        hooked ? "hooked" : "missed");
 	});
 
-	__atomic_store_n(&overlay_active, active != 0, __ATOMIC_RELAXED);
+	int was_active = __atomic_exchange_n(&overlay_active, active != 0, __ATOMIC_RELAXED);
 	shim_log("overlay_shim np_overlay_shim_set_active: %s game input\n",
 	        active ? "blocking" : "passing");
+	if (was_active && !active) {
+		dispatch_async(dispatch_get_main_queue(), ^{
+			if (__atomic_load_n(&overlay_active, __ATOMIC_RELAXED))
+				return;
+			id (*send)(id, SEL) = (id (*)(id, SEL))objc_msgSend;
+			id workspace = send(objc_getClass("NSWorkspace"), sel_registerName("sharedWorkspace"));
+			id front = send(workspace, sel_registerName("frontmostApplication"));
+			NSString *bundle = send(front, sel_registerName("bundleIdentifier"));
+			if (![bundle isEqualToString:@"com.valvesoftware.steam"])
+				return;
+			id game = send(objc_getClass("NSRunningApplication"), sel_registerName("currentApplication"));
+			NSString *game_bundle = send(game, sel_registerName("bundleIdentifier"));
+			if ([game_bundle hasPrefix:@"com.notproton.launcher."])
+				((BOOL (*)(id, SEL, NSUInteger))objc_msgSend)(game, sel_registerName("activateWithOptions:"), 1);
+		});
+	}
 }
 
 // FEX specific stuff

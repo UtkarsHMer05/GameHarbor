@@ -113,6 +113,12 @@ struct SafetyChecks {
         precondition(SteamInstaller.updateConfig(unblocked, blocked: true).contains("OtherSetting=value\nLastSetting=2\nBootStrapperInhibitUpdateOnLaunch=enable\n"))
 
         let app = root.appendingPathComponent("Steam.app")
+        let bundleLock = try SteamInstaller.acquireBundleLock(for: app)
+        do {
+            _ = try SteamInstaller.acquireBundleLock(for: app)
+            preconditionFailure("concurrent Steam bundle edit was accepted")
+        } catch is StepFailure {}
+        close(bundleLock)
         let macos = app.appendingPathComponent("Contents/MacOS")
         try fm.createDirectory(at: macos, withIntermediateDirectories: true)
         try fm.copyItem(atPath: "/usr/bin/true", toPath: macos.appendingPathComponent("steam_osx").path)

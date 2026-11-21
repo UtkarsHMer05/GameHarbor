@@ -121,7 +121,7 @@ is "an unwritable C: drive does not end the launch" returned "$(cat "$case_dir/o
 echo "== controllers on Steam's ignore list"
 again() { : > "$case_dir/calls"; : > "$case_dir/log"; rm -f "$case_dir/imported"; run_in "$1" "$2"; }
 hidden() { printf '%s\r\n' "[HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Services\\WineBus\\Devices\\$1]" '"Hidraw"=dword:00000000' ''; }
-shown() { printf '%s\r\n' "[-HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Services\\WineBus\\Devices\\$1]" ''; }
+shown() { printf '%s\r\n' "[HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Services\\WineBus\\Devices\\$1]" '"Hidraw"=-' ''; }
 owned() { tr '\n' ' ' < "$case_dir/notproton-hidden-controllers" | sed 's/ $//'; }
 
 new_case
@@ -145,21 +145,33 @@ in_registry 054c/09cc 054c/0ce6 057e/2006 057e/2007 057e/2009
 IGNORE='0x054c/0x0ce6' EXCEPT='' RAW=''
 again "" 0
 { cat "$work/retina-off"; shown 054c/09cc; } > "$work/expected"
-same_file "a controller that leaves the list loses the key and nothing is rewritten" "$work/expected" "$case_dir/imported"
+same_file "a controller that leaves the list only loses the managed value" "$work/expected" "$case_dir/imported"
 is "the listed controller and the Nintendo pads stay tracked" "054c/0ce6 057e/2006 057e/2007 057e/2009" "$(owned)"
 is "a removed key restarts the prefix too" "wineserver -w" "$(calls | tail -1)"
 in_registry 054c/0ce6 057e/2006 057e/2007 057e/2009
 IGNORE='0x054c/0x0ce6' EXCEPT='' RAW=''
+ownership_inode=$(stat -f %i "$case_dir/notproton-hidden-controllers")
 again "" 0
 is "an unchanged list does not restart the prefix" "reg import C:\\notproton-settings.X" "$(calls)"
+is "an unchanged list does not replace the ownership file" "$ownership_inode" \
+  "$(stat -f %i "$case_dir/notproton-hidden-controllers")"
 
 in_registry 054c/0ce6 057e/2006 057e/2007 057e/2009
 IGNORE='0x054c/0x0ce6' EXCEPT='' RAW='1'
 again "" 0
 { cat "$work/retina-off"; shown 054c/0ce6; shown 057e/2006; shown 057e/2007; shown 057e/2009; } > "$work/expected"
-same_file "NOTPROTON_RAW_CONTROLLERS=1 removes every key NotProton wrote" "$work/expected" "$case_dir/imported"
+same_file "NOTPROTON_RAW_CONTROLLERS=1 removes only values NotProton wrote" "$work/expected" "$case_dir/imported"
 is "NOTPROTON_RAW_CONTROLLERS=1 tracks nothing" "" "$(owned)"
 is "NOTPROTON_RAW_CONTROLLERS=1 is logged" "controllers: games read them directly (NOTPROTON_RAW_CONTROLLERS=1)" "$(cat "$case_dir/log")"
+
+new_case
+printf '%s\n' 054c/0ce6 > "$case_dir/notproton-hidden-controllers"
+printf '%s\n' '[System\\ControlSet001\\Services\\WineBus\\Devices\\054c/0ce6]' \
+  '"Hidraw"=dword:00000001' '"OtherSetting"=dword:00000002' > "$case_dir/pfx/system.reg"
+IGNORE='' EXCEPT='' RAW='1'
+again "" 0
+same_file "cleanup preserves a manually changed Hidraw value and other settings" "$work/retina-off" "$case_dir/imported"
+is "cleanup forgets the old registry ownership" "" "$(owned)"
 
 new_case
 in_registry 28de/1304 057e/2009

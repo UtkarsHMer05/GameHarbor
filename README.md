@@ -19,6 +19,18 @@ You need an Apple silicon Mac running macOS 15 or later. Install Steam and open 
 
 Downloads require access to this repository. These builds use ad hoc signing and may require macOS approval on first open. A successful build and test run on `main` publishes both disk images to Releases. Steam updates can move the client to a build without a matching profile. GameHarbor keeps its existing tool IDs and support directory. SteamPlayMac uses `~/Library/Application Support/SteamPlayMac` and migrates the previous settings directory on first use.
 
+## Existing Windows game downloads
+
+To reuse a completed download from Windows Steam in CrossOver, select the Windows compatibility tool for the title in macOS Steam, then quit both Steam clients and all Wine games. From a GameHarbor checkout, run the import with the game's Steam AppID and the source library's `steamapps` directory.
+
+```sh
+python3 tools/game_file_safety.py --import-game 123456 --from-steamapps "/path/to/source/steamapps"
+```
+
+The import copies the game files and manifest to the main Steam library. Use `--to-steamapps` to select another existing library. It keeps the source and refuses to overwrite a destination game, including its manifest. Saves, settings, and Wine prefixes stay in their original locations.
+
+Use an APFS Steam library for Wine prefixes. GameHarbor refuses to start or rebuild prefixes on NTFS, exFAT, and FAT. If your prefix is already on one of those formats, keep a separate copy of the prefix and check your saves after moving the library.
+
 ## Architecture
 
 | Component | What it does |

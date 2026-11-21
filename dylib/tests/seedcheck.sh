@@ -17,6 +17,8 @@ functions="$functions
 $(cut_block '^runner_id=""' '^if \[ -n ".STEAM_COMPAT_DATA_PATH" \]; then' "")"
 functions="$functions
 $(cut_block '^without_lock_fds\(\) \{' '^\}' 1)"
+functions="$functions
+$(cut_block '^unsafe_prefix_volume\(\) \{' '^\}' 1)"
 np_build=fixture
 np_variant_key=""
 export np_variant_key np_build CX_ROOT CX_HOME wine_unix np_tool_dir WINELOADER WINESERVER
@@ -152,6 +154,33 @@ printf save > "$profile/My Documents BACKUP/Game/slot.sav"
 lay_out_proton_profile
 check test ! -e "$profile/Documents/Game/slot.sav"
 check test -f "$profile/My Documents BACKUP/Game/slot.sav"
+
+fixture
+profile="$WINEPREFIX/drive_c/users/steamuser"
+mkdir -p "$profile/Documents" "$case_root/old-documents"
+ln -s "$case_root/old-documents" "$profile/My Documents"
+# shellcheck disable=SC2329 # the extracted profile migration calls ln
+check test "$(ln() { return 1; }; lay_out_proton_profile && echo accepted || echo refused)" = refused
+check test "$(readlink "$profile/My Documents")" = "$case_root/old-documents"
+
+fixture
+profile="$WINEPREFIX/drive_c/users/steamuser"
+mkdir -p "$profile" "$case_root/shared"
+ln -s "$case_root/shared" "$profile/AppData"
+check test "$(lay_out_proton_profile && echo accepted || echo refused)" = refused
+check test ! -e "$case_root/shared/Local"
+
+volume_fixture() (
+  fake_fs="$1"
+  # shellcheck disable=SC2329 # the extracted volume check calls mount
+  mount() {
+    printf '/dev/%s on /Volumes/Fixture Drive (%s, local)\n' "$(stat -f %Sd "$work")" "$fake_fs"
+  }
+  unsafe_prefix_volume "$work/not-created/compatdata/42"
+)
+check volume_fixture tuxera_ntfs
+check volume_fixture exfat
+check test "$(volume_fixture apfs && echo refused || echo accepted)" = accepted
 
 fixture
 mkdir -p "$STEAM_COMPAT_DATA_PATH/pfx.seeding.$$"

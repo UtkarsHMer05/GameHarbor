@@ -23,8 +23,26 @@ iconmaker="$np_support/iconmaker"
 find_client_root() {
   client_root="$1"
   while [ -n "$client_root" ] && [ "$client_root" != "/" ] && [ ! -d "$client_root/appcache" ]; do
-    client_root=$(dirname "$client_root")
+    client_parent=$(dirname "$client_root")
+    [ "$client_parent" != "$client_root" ] || break
+    client_root="$client_parent"
   done
+}
+
+unsafe_prefix_volume() {
+  prefix_parent="$1"
+  while [ ! -d "$prefix_parent" ]; do
+    parent=${prefix_parent%/*}
+    [ -n "$parent" ] && [ "$parent" != "$prefix_parent" ] || return 1
+    prefix_parent="$parent"
+  done
+  prefix_disk=$(/usr/bin/stat -Lf %Sd "$prefix_parent" 2>/dev/null) || return 1
+  prefix_fs=$(LC_ALL=C mount | awk -v disk="/dev/$prefix_disk" '
+    $1 == disk {
+      sub(/^.* \(/, ""); sub(/[,)].*$/, ""); print tolower($0); exit
+    }')
+  case "$prefix_fs" in *ntfs*|exfat|msdos) return 0 ;; esac
+  return 1
 }
 
 read_app_meta() {
@@ -44,6 +62,28 @@ read_app_meta() {
   fi
 }
 
+fetch_client_icon() (
+  exec 6>> "$icon_root/.clienticon.lock"
+  /usr/bin/lockf -s -t 0 6 || exit 0
+  [ ! -s "$ico" ] && [ ! -f "$absent" ] && [ ! -f "$failed" ] || exit 0
+  url="https://shared.fastly.steamstatic.com/community_assets/images/apps/$app_id/$meta_clienticon.ico"
+  code=$(curl -fsL --connect-timeout 5 --max-time 20 -w '%{http_code}' -o "$ico.new" "$url" 2>>"$log")
+  magic=$(od -An -tx1 -N4 "$ico.new" 2>/dev/null | tr -d ' \n')
+  if [ "$magic" = "00000100" ]; then
+    mv -f "$ico.new" "$ico"
+    echo "fetched client icon $meta_clienticon" >> "$log" 2>&1 || true
+  else
+    rm -f "$ico.new"
+    if [ "$code" = "404" ]; then
+      : > "$absent"
+      echo "no client icon published for $meta_clienticon" >> "$log" 2>&1 || true
+    else
+      : > "$failed"
+      echo "client icon fetch for $meta_clienticon failed (http ${code:-none}), will retry in an hour" >> "$log" 2>&1 || true
+    fi
+  fi
+)
+
 resolve_icon() {
   set +e
   art_dir="$client_root/appcache/librarycache/$app_id"
@@ -57,21 +97,11 @@ resolve_icon() {
     find "$absent" -mtime +14 -delete 2>/dev/null || true
     find "$failed" -mmin +60 -delete 2>/dev/null || true
     if [ ! -s "$ico" ] && [ ! -f "$absent" ] && [ ! -f "$failed" ]; then
-      url="https://shared.fastly.steamstatic.com/community_assets/images/apps/$app_id/$meta_clienticon.ico"
-      code=$(curl -fsL --connect-timeout 5 --max-time 20 -w '%{http_code}' -o "$ico.new" "$url" 2>>"$log")
-      magic=$(od -An -tx1 -N4 "$ico.new" 2>/dev/null | tr -d ' \n')
-      if [ "$magic" = "00000100" ]; then
-        mv -f "$ico.new" "$ico"
-        echo "fetched client icon $meta_clienticon" >> "$log" 2>&1 || true
+      if [ "$verb" = waitforexitandrun ]; then
+        # Use local art now. The downloaded icon is available on the next launch.
+        fetch_client_icon 8>&- 9>&- </dev/null >> "$log" 2>&1 &
       else
-        rm -f "$ico.new"
-        if [ "$code" = "404" ]; then
-          : > "$absent"
-          echo "no client icon published for $meta_clienticon" >> "$log" 2>&1 || true
-        else
-          : > "$failed"
-          echo "client icon fetch for $meta_clienticon failed (http ${code:-none}), will retry in an hour" >> "$log" 2>&1 || true
-        fi
+        fetch_client_icon
       fi
     fi
     [ -s "$ico" ] && art="$ico"
@@ -346,7 +376,13 @@ case "$np_build" in *[!A-Za-z0-9.-]*) np_build="" ;; esac
 np_display=$(sed -n 's/.*"display_name"[[:space:]]*"\(.*\)".*/\1/p' \
   "$np_tool_dir/compatibilitytool.vdf" 2>/dev/null | head -1) || np_display=""
 [ -n "$np_display" ] || np_display="CrossOver build ${np_build:-unknown}"
-if [ -n "$STEAM_COMPAT_DATA_PATH" ]; then
+prefix_volume_unsafe=0
+if [ -n "$STEAM_COMPAT_DATA_PATH" ] &&
+   { unsafe_prefix_volume "$STEAM_COMPAT_DATA_PATH" ||
+     { [ -L "$STEAM_COMPAT_DATA_PATH/pfx" ] && unsafe_prefix_volume "$STEAM_COMPAT_DATA_PATH/pfx"; }; }; then
+  prefix_volume_unsafe=1
+  log="$np_support/prefix-volume.log"
+elif [ -n "$STEAM_COMPAT_DATA_PATH" ]; then
   log="$STEAM_COMPAT_DATA_PATH/notproton-run.log"
 else
   log=/dev/null
@@ -1808,16 +1844,14 @@ migrate_user_paths() {
         continue
       fi
     fi
-    if [ ! -e "$old" ] && [ ! -L "$old" ]; then
-      mkdir -p "${old%/*}" 2>/dev/null || true
-      ln -s "$link" "$old" 2>/dev/null \
-        || echo "=== $old_rel could not be aliased onto $new_rel ===" >> "$log" 2>&1 \
-        || true
-    elif [ -L "$old" ] && [ "$(readlink "$old")" != "$link" ]; then
-      rm -f "$old" 2>/dev/null || true
-      ln -s "$link" "$old" 2>/dev/null \
-        || echo "=== $old_rel could not be aliased onto $new_rel ===" >> "$log" 2>&1 \
-        || true
+    if [ "$(readlink "$old" 2>/dev/null || true)" != "$link" ]; then
+      pending="$old.gameharbor-link.$$"
+      if mkdir -p "${old%/*}" 2>/dev/null && ln -s "$link" "$pending" 2>/dev/null; then
+        if /bin/mv -fh "$pending" "$old" 2>/dev/null; then continue; fi
+        rm -f "$pending"
+      fi
+      migration_failed=1
+      echo "=== could not finish setting up save folders ($old_rel to $new_rel) ===" >> "$log" 2>&1 || true
     fi
   done
   [ "$migration_failed" -eq 0 ]
@@ -1825,6 +1859,7 @@ migrate_user_paths() {
 
 lay_out_proton_profile() {
   users="${1:-$WINEPREFIX}/drive_c/users"
+  [ ! -L "$users" ] || return 1
   if [ -d "$users/crossover" ] && [ ! -L "$users/crossover" ]; then
     echo "=== prefix predates the steamuser layout, rebuild it for cloud saves ===" \
       >> "$log" 2>&1 || true
@@ -1836,10 +1871,10 @@ lay_out_proton_profile() {
       >> "$log" 2>&1 || true
     return 0
   fi
-  mkdir -p "$profile" 2>/dev/null || return 0
+  [ ! -L "$profile/AppData" ] || return 1
   for folder in Documents Desktop Downloads Music Pictures Videos Templates \
       AppData/Local AppData/Roaming; do
-    mkdir -p "$profile/$folder" 2>/dev/null || true
+    mkdir -p "$profile/$folder" 2>/dev/null || return 1
   done
   migrate_user_paths "$profile" || return 1
   if [ -L "$users/crossover" ] && [ ! -e "$users/crossover" ]; then
@@ -1869,13 +1904,19 @@ hidraw_lines() {
       printf '%s\r\n' "[HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Services\\WineBus\\Devices\\$id]" \
         '"Hidraw"=dword:00000000' ''
     else
-      printf '%s\r\n' "[-HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Services\\WineBus\\Devices\\$id]" ''
+      printf '%s\r\n' "[HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Services\\WineBus\\Devices\\$id]" \
+        '"Hidraw"=-' ''
     fi
   done
 }
 
 write_owned_controllers() {
-  if printf '%s\n' "$1" | sed '/^$/d' | sort -u > "$controllers_file.new" \
+  tracked=$(printf '%s\n' "$1" | sed '/^$/d' | sort -u)
+  if [ -f "$controllers_file" ] && [ "$(cat "$controllers_file" 2>/dev/null)" = "$tracked" ]; then
+    return 0
+  fi
+  if printf '%s' "${tracked:+$tracked
+}" > "$controllers_file.new" \
     && mv -f "$controllers_file.new" "$controllers_file"; then
     return 0
   fi
@@ -1895,16 +1936,26 @@ plan_hidden_controllers() {
   [ -n "$STEAM_COMPAT_DATA_PATH" ] && [ ! -L "$controllers_file" ] || return 1
   owned=""
   [ ! -f "$controllers_file" ] || owned=$(sed -n '/^[0-9a-f]\{4\}\/[0-9a-f]\{4\}$/p' "$controllers_file")
-  in_registry=""
-  [ ! -f "$WINEPREFIX/system.reg" ] || in_registry=$(LC_ALL=C awk '
+  registry=""
+  [ ! -f "$WINEPREFIX/system.reg" ] || registry=$(LC_ALL=C awk '
     /^\[/ {
+      id = ""
       line = tolower($0)
       prefix = "[system\\\\controlset001\\\\services\\\\winebus\\\\devices\\\\"
       if (index(line, prefix) != 1) next
-      id = substr(line, length(prefix) + 1, 9)
-      if (id ~ /^[0-9a-f]{4}\/[0-9a-f]{4}$/ && substr(line, length(prefix) + 10, 1) == "]") print id
+      candidate = substr(line, length(prefix) + 1, 9)
+      if (candidate ~ /^[0-9a-f]{4}\/[0-9a-f]{4}$/ && substr(line, length(prefix) + 10, 1) == "]") {
+        id = candidate
+        print id
+      }
+      next
+    }
+    id != "" && tolower($0) ~ /^"hidraw"=dword:00000000\r?$/ {
+      print id " hidden"
     }' "$WINEPREFIX/system.reg" \
     | sort -u)
+  in_registry=$(printf '%s\n' "$registry" | sed '/ /d')
+  hidden_in_registry=$(printf '%s\n' "$registry" | sed -n 's/ hidden$//p')
   if [ "$NOTPROTON_RAW_CONTROLLERS" != "1" ]; then
     controllers_wanted=$(ids_without "$(controller_ids "$SDL_GAMECONTROLLER_IGNORE_DEVICES")" \
       "$(controller_ids "$SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT")")
@@ -1917,6 +1968,9 @@ plan_hidden_controllers() {
   fi
   controllers_add=$(ids_without "$controllers_wanted" "$in_registry")
   controllers_remove=$(ids_without "$owned" "$controllers_wanted")
+  if [ -n "$controllers_remove" ]; then
+    controllers_remove=$(ids_without "$controllers_remove" "$(ids_without "$controllers_remove" "$hidden_in_registry")")
+  fi
   write_owned_controllers "$owned
 $controllers_wanted"
 }
@@ -2135,6 +2189,11 @@ import_prefix_settings() {
 }
 
 stage_step="runner check"
+if [ "$prefix_volume_unsafe" = 1 ]; then
+  echo "=== refused to prepare the Wine prefix on $prefix_fs: $STEAM_COMPAT_DATA_PATH ===" >> "$log" 2>&1 || true
+  show_alert "Wine prefix drive is unsupported" "Move this game's Steam library to an APFS volume and keep a copy of your existing prefix and saves."
+  exit 1
+fi
 if [ -z "$np_build" ] || [ ! -d "$CX_ROOT/lib/wine" ]; then
   echo "=== build ${np_build:-(none recorded)} behind this compatibility tool is not set up, set it up in NotProton ===" >> "$log" 2>&1 || true
   show_alert "CrossOver is not set up" "The CrossOver build behind $(alert_safe "$np_display") is not set up. Set it up in NotProton, or pick another compatibility tool for this game."
@@ -2828,7 +2887,6 @@ if [ -d "$bridge_src" ] && [ -n "$WINEPREFIX" ]; then
 fi
 
 export WINEDEBUG="${WINEDEBUG:-err+all,fixme-all}"
-exec 8>&-
 printf 'launch_args=%s\n' "$launch_args" >> "$log" 2>&1 || true
 printf '=== launching (%s): %s %s ===\n' "$verb" "$WINELOADER" "$*" >> "$log" 2>&1 || true
 
@@ -2848,12 +2906,12 @@ if [ "$foreground" = 0 ]; then
     # runinprefix is the one verb the Linux client keeps on the raw loader.
     runinprefix)
       echo "=== running helper on raw loader: $* ===" >> "$log" 2>&1 || true
-      "$WINELOADER" "$@" >> "$log" 2>&1 || status=$?
+      without_lock_fds "$WINELOADER" "$@" >> "$log" 2>&1 || status=$?
       ;;
     *)
       # A helper target can be a URL, which steam.exe resolves.
       echo "=== running helper through the shim: $* ===" >> "$log" 2>&1 || true
-      "$WINELOADER" "$shim_exe" "$@" >> "$log" 2>&1 || status=$?
+      without_lock_fds "$WINELOADER" "$shim_exe" "$@" >> "$log" 2>&1 || status=$?
       ;;
   esac
   echo "=== helper exited status=$status ===" >> "$log" 2>&1 || true
@@ -3057,13 +3115,22 @@ runner_stamp() {
   else
     set -- "$wine_unix/wine" "$wine_unix/ntdll.so"
   fi
+  for f in "$CX_ROOT/lib/wine"/*-windows/ntdll.dll \
+           "$CX_ROOT/lib/wine"/*-windows/lsteamclient.dll \
+           "$CX_ROOT/lib/wine"/*-unix/lsteamclient.so; do
+    [ ! -f "$f" ] || set -- "$@" "$f"
+  done
+  if [ -d "$wine_unix/wine.app" ] && [ -f "$wine_unix/ntdll.so" ]; then
+    set -- "$@" "$wine_unix/ntdll.so"
+  fi
   stat -f '%N %i %Fm' "$CX_ROOT/lib/wine" "$CX_ROOT/lib/wine"/* "$@"
 }
 install_game_runner() (
   exec 7>> "$loader_root/.lock"
   /usr/bin/lockf -s -t 30 7 || exit 1
   stamp=$(runner_stamp) || exit 1
-  if [ "$(cat "$game_runner/.stamp" 2>/dev/null)" != "$stamp" ]; then
+  if [ ! -x "$game_app/Contents/MacOS/wine" ] ||
+     [ "$(cat "$game_runner/.stamp" 2>/dev/null)" != "$stamp" ]; then
     clone="$loader_work/runner"
     mkdir -p "$clone/lib" || exit 1
     for f in "$CX_ROOT"/*; do
@@ -3130,8 +3197,8 @@ else
 fi
 
 kill_wine_prefix() {
-  "$WINESERVER" -k >> "$log" 2>&1 || true
-  "$WINESERVER" -w >> "$log" 2>&1 || true
+  without_lock_fds "$WINESERVER" -k >> "$log" 2>&1 || true
+  without_lock_fds "$WINESERVER" -w >> "$log" 2>&1 || true
   if command -v lsof >/dev/null 2>&1 && server_dir=$(prefix_server_dir); then
     if [ -d "$server_dir" ]; then
       survivors=$(lsof -t +D "$server_dir" 2>/dev/null | sort -u)
@@ -3432,7 +3499,7 @@ NP_FEAT_PAIRS
    # Can't use env here, it drops DYLD_INSERT_LIBRARIES
    while [ "${1#/}" = "$1" ]; do export "${1?}"; shift; done
    exec "$@") \
-    > "$loader_root/notproton-wine.log" 2>&1 &
+    > "$loader_root/notproton-wine.log" 2>&1 8>&- 9>&- &
 else
   set -- --args "$shim_exe" "$@"
   # Prepended first so they end up last among the --env args since open keeps the last of a repeated name.
@@ -3469,12 +3536,24 @@ NP_FEAT_ENVS
     --env NOTPROTON_GAME_CWD="$game_cwd" "$@"
   np_started=$(date +%s)
   np_terminated=0
-  open -n -W -a "$loader_app" "$@" >> "$log" 2>&1 &
+  open -n -W -a "$loader_app" "$@" >> "$log" 2>&1 8>&- 9>&- &
 fi
 open_pid=$!
-/usr/bin/caffeinate -d -i -w "$open_pid" >> "$log" 2>&1 &
+focus_record=""
+if [ -n "$game_mode_app" ] && [ -n "$np_support" ]; then
+  if mkdir -p "$np_support/focus"; then
+    focus_record="$np_support/focus/$$"
+    (umask 077; printf '%s\n' "$game_mode_app" > "$focus_record.new" &&
+      mv -f "$focus_record.new" "$focus_record") || true
+  fi
+  if [ -x "$np_support/appinfo" ]; then
+    "$np_support/appinfo" --focus-game "$game_mode_app" >> "$log" 2>&1 8>&- 9>&- &
+  fi
+fi
+/usr/bin/caffeinate -d -i -w "$open_pid" >> "$log" 2>&1 8>&- 9>&- &
 status=0
 wait "$open_pid" || status=$?
+[ -z "$focus_record" ] || rm -f "$focus_record" "$focus_record.new" || true
 echo "=== game exited status=$status, killing wine prefix ===" >> "$log" 2>&1 || true
 kill_wine_prefix
 [ -z "$STEAM_COMPAT_DATA_PATH" ] \

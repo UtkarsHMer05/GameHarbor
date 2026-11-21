@@ -212,6 +212,7 @@ enum PrefixTools {
     // A launch setting the prefix up or a rebuild started from Steam holds the lock in another
     // process. Wine started now would write into a prefix that is half made or about to be replaced.
     private static func requireUnclaimed(step: String, prefix: WinePrefix) throws {
+        try PrefixStore.requireSupportedVolume(prefix, step: step)
         guard !PrefixStore.isClaimed(prefix) else {
             throw StepFailure(step: step, detail: String(localized: "\(prefix.title) is running. Quit the game first."))
         }
@@ -321,6 +322,7 @@ enum PrefixTools {
         if let refused = verbs.first(where: { damaging.contains($0) || $0.hasPrefix("prefix=") || $0.hasPrefix("-") }) {
             throw StepFailure(step: step, detail: String(localized: "GameHarbor does not run \(refused) with Winetricks."))
         }
+        try PrefixStore.requireSupportedVolume(prefix, step: step)
         guard let claim = PrefixStore.claim(prefix) else {
             throw StepFailure(step: step, detail: String(localized: "\(prefix.title) is running. Quit the game first."))
         }
